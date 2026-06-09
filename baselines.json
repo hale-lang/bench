@@ -121,10 +121,10 @@
     },
     "json_parse": {
       "kind": "micro",
-      "elapsed_ns": 75039976,
+      "elapsed_ns": 58550425,
       "maxrss_kb": 30340,
       "tolerance": 0.3,
-      "note": "JSON parse throughput: 200k parses of a 7-field market-data quote via the inlined Type::from_json. Beats Go encoding/json (~2x) and Python json.loads (~2.9x); ~1.47x behind V8 JSON.parse. Baselined 2026-06-09 after inline-parser + string-fast-path (was ~291ms via cursor)."
+      "note": "JSON parse throughput: 200k parses of a 7-field market-data quote via the inlined Type::from_json. ~1.15x behind V8 JSON.parse, beats Go encoding/json ~2.4x and Python json.loads ~3.5x. Baselined 2026-06-09 after inline-parser + string-fast-path + byte_at/range_eq leaf-primitive inlining (was ~291ms via the cursor)."
     }
   }
 }
