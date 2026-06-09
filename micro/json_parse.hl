@@ -1,0 +1,37 @@
+// json_parse — schema-specialized JSON parse throughput.
+//
+// Parses a fixed market-data quote record N times via the generated
+// `Quote::from_json` (JSON Tier 2: single-pass, schema-specialized,
+// driving the SSE2/AVX2 object cursor) and folds two fields. The
+// motivating workload is high-volume market-data JSON ingest.
+//
+// Compares against Go encoding/json (struct unmarshal), Node JSON.parse,
+// and Python json.loads — each parsing the same record into native form
+// and folding the same fields.
+
+type Quote {
+    sym: String `json:"sym"`;
+    bid: Int    `json:"bid"`;
+    ask: Int    `json:"ask"`;
+    bidsz: Int  `json:"bidsz"`;
+    asksz: Int  `json:"asksz"`;
+    ts: Int     `json:"ts"`;
+    seq: Int    `json:"seq"`;
+}
+
+fn main() {
+    let body = "{\"sym\": \"BTCUSD\", \"bid\": 50000, \"ask\": 50010, \"bidsz\": 12, \"asksz\": 8, \"ts\": 1700000000000, \"seq\": 42}";
+    let iters = 200000;
+    let t0 = std::time::monotonic();
+    let mut total = 0;
+    let mut i = 0;
+    while i < iters {
+        let q = Quote::from_json(body) or raise;
+        total = total + q.bid + q.ask;
+        i = i + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("iters="); println(iters);
+    print("total="); println(total);
+    print("elapsed_ns="); println(t1 - t0);
+}
