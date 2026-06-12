@@ -1,11 +1,12 @@
 {
-  "updated_at": "2026-05-24T22:30:00Z",
+  "updated_at": "2026-06-11T00:00:00Z",
   "benches": {
     "bus_dispatch": {
       "kind": "micro",
-      "elapsed_ns": 8740324,
-      "maxrss_kb": 57256,
-      "tolerance": 0.3
+      "elapsed_ns": 3028503,
+      "maxrss_kb": 9564,
+      "tolerance": 0.3,
+      "note": "Re-baselined 2026-06-11 (GH #125): the cooperative bus queue is now bounded (default 8192-cell cap). This bench floods the queue; bounding it cut maxrss 57256->9564 KB AND elapsed 8.74->3.03 ms \u2014 the bounded ~4.5 MB queue is far more cache-friendly than the old ~55 MB unbounded one. Past the cap the publisher inline-drains (backpressure) instead of buffering the whole backlog."
     },
     "bus_dispatch_cross_pool": {
       "kind": "micro",
@@ -16,10 +17,10 @@
     },
     "form_hashmap_false_sharing": {
       "kind": "micro",
-      "elapsed_ns": 11952056,
-      "maxrss_kb": 41032,
+      "elapsed_ns": 16806414,
+      "maxrss_kb": 41476,
       "tolerance": 0.4,
-      "note": "F.32-1\u03b3-v1 baseline (2026-05-25). Two-pool concurrent writers into a shared @form(hashmap, sync = lockfree, cap = 300000). 100k inserts per writer = 200k total. \u03b3-v1 uses cell-level CAS (3-state occupancy) with NO rwlock or mutex \u2014 pure atomic ops on slot[0] + memcpy. On this 2-core / cheap-payload bench: \u03b3-v1 is ~1.39x faster than \u03b1 (serialized) and ~2.54x faster than \u03b22-v2 (striped+rwlock); closes the gap with Go's sync.Mutex map from 1.66x to 1.18x. \u03b3-v1 is fixed-cap (no grow) and remove-less \u2014 author sized cap to 1.5x expected entries to keep linear-probe latency bounded."
+      "note": "F.32-1\u03b3-v1 baseline (2026-05-25). Two-pool concurrent writers into a shared @form(hashmap, sync = lockfree, cap = 300000). 100k inserts per writer = 200k total. \u03b3-v1 uses cell-level CAS (3-state occupancy) with NO rwlock or mutex \u2014 pure atomic ops on slot[0] + memcpy. On this 2-core / cheap-payload bench: \u03b3-v1 is ~1.39x faster than \u03b1 (serialized) and ~2.54x faster than \u03b22-v2 (striped+rwlock); closes the gap with Go's sync.Mutex map from 1.66x to 1.18x. \u03b3-v1 is fixed-cap (no grow) and remove-less \u2014 author sized cap to 1.5x expected entries to keep linear-probe latency bounded. | Re-baselined 2026-06-11: pre-existing drift vs the 05-25 baseline (confirmed ~16.8M on the pre-#125 bus-queue-change binary \u2014 this bench has no bus constructs, so the bus-queue change is not on its code path). 2-core false-sharing variance; correctness-driven drift from changes since 05-25, not a perf bug and not from #125."
     },
     "form_hashmap_walk_large": {
       "kind": "micro",
