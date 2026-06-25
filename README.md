@@ -34,7 +34,7 @@ Each invocation writes a timestamped JSON report under
 
 ## Cross-language comparative grid
 
-Latest snapshot: **Hale v0.8.1** (2026-05-26), AMD Ryzen 7
+Latest snapshot: **Hale v0.8.3** (2026-06-25), AMD Ryzen 7
 9800X3D / x86_64 / Linux 6.18.
 
 Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
@@ -48,39 +48,47 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `loop_overhead`             | 12.06 ms | 19.75 ms (1.64×) | 20.87 ms (1.73×) | 3.60 s (298×) |
-| `fn_call`                   | 16.56 ms | 7.72 ms (0.47×) | 3.22 ms (0.19×) | 387.08 ms (23.4×) |
-| `locus_instantiation`       | 2.03 ms | 0.15 ms (0.08×) | 3.68 ms (1.81×) | 12.06 ms (5.94×) |
-| `bus_dispatch`              | 9.59 ms | 0.05 ms (0.005×) | 0.34 ms (0.035×) | 1.15 ms (0.12×) |
-| `bus_dispatch_heap_payload` | 5.15 ms | — | — | — |
-| `bus_publish_shm_ring`      | 1.38 ms | — | — | — |
-| `form_vec_push`             | 30.96 ms | 3.12 ms (0.10×) | 3.69 ms (0.12×) | 13.11 ms (0.42×) |
-| `form_vec_get`              | 9.71 ms | 0.04 ms (0.004×) | 0.64 ms (0.07×) | 5.66 ms (0.58×) |
-| `form_hashmap_set`          | 45.19 ms | 49.37 ms (1.09×) | 83.48 ms (1.85×) | 270.01 ms (5.97×) |
-| `form_hashmap_get`          | 5.90 ms | 1.10 ms (0.19×) | 2.53 ms (0.43×) | 9.43 ms (1.60×) |
+| `loop_overhead`             | 11.57 ms | 19.21 ms (1.66×) | 20.33 ms (1.76×) | 3.36 s (290×) |
+| `fn_call`                   | 16.46 ms | 7.69 ms (0.467×) | 3.24 ms (0.197×) | 356.73 ms (21.7×) |
+| `locus_instantiation`       | 2.41 ms | 152.66 µs (0.0633×) | 1.02 ms (0.422×) | 12.67 ms (5.25×) |
+| `bus_dispatch`              | 2.82 ms | 46.21 µs (0.0164×) | 308.33 µs (0.109×) | 1.09 ms (0.384×) |
+| `bus_dispatch_heap_payload` | 2.03 ms | — | — | — |
+| `bus_publish_shm_ring`      | 1.34 ms | — | — | — |
+| `form_vec_push`             | 28.57 ms | 2.66 ms (0.093×) | 3.68 ms (0.129×) | 12.78 ms (0.447×) |
+| `form_vec_get`              | 9.58 ms | 38.77 µs (0.004×) | 671.92 µs (0.0701×) | 5.57 ms (0.582×) |
+| `form_hashmap_set`          | 43.24 ms | 47.80 ms (1.11×) | 81.57 ms (1.89×) | 262.14 ms (6.06×) |
+| `form_hashmap_get`          | 5.23 ms | 1.09 ms (0.208×) | 2.47 ms (0.473×) | 10.51 ms (2.01×) |
+| `json_parse`                | 57.97 ms | 150.02 ms (2.59×) | 51.04 ms (0.88×) | 213.97 ms (3.69×) |
+
+`json_parse` is 200k parses of a 7-field market-data quote
+via the inlined `Type::from_json`. Hale **beats Go's
+encoding/json 2.59× and Python's json.loads 3.69×**, and
+sits ~12% behind V8's `JSON.parse` (0.88×) — the closest a
+non-V8 contender gets here, after the inline-parser +
+string-fast-path + leaf-primitive inlining work.
 
 ### Amortized microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `vec_amortized`     | 1.05 ms | 1.37 ms (1.30×) | 3.13 ms (2.98×) | 13.91 ms (13.2×) |
-| `fn_scratch_work`   | 0.42 ms | 0.48 ms (1.14×) | 0.95 ms (2.25×) | 2.59 ms (6.11×) |
-| `coord_with_churn`  | 46.86 µs | 0.16 µs (0.003×) | 32.51 µs (0.69×) | 4.25 µs (0.09×) |
+| `vec_amortized`     | 959.28 µs | 1.25 ms (1.3×) | 2.93 ms (3.05×) | 13.23 ms (13.8×) |
+| `fn_scratch_work`   | 420.75 µs | 449.95 µs (1.07×) | 952.79 µs (2.26×) | 2.61 ms (6.2×) |
+| `coord_with_churn`  | 42.96 µs | 0.16 µs (0.0037×) | 32.18 µs (0.749×) | 4.06 µs (0.0944×) |
 
 ### Coordinated-workload microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `tree_fanout`      | 22.88 µs | 8.16 µs (0.36×) | 311.40 µs (13.61×) | 580.63 µs (25.37×) |
-| `pipeline_3stage`  | 7.71 ms | 0.22 ms (0.03×) | 1.25 ms (0.16×) | 7.40 ms (0.96×) |
+| `tree_fanout`      | 19.50 µs | 8.01 µs (0.411×) | 242.45 µs (12.4×) | 575.17 µs (29.5×) |
+| `pipeline_3stage`  | 3.89 ms | 214.93 µs (0.0552×) | 1.10 ms (0.281×) | 6.98 ms (1.79×) |
 
 ### Cross-pool / cache microbenches (F.32)
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `bus_dispatch_cross_pool`     | 11.18 ms | 6.18 ms (0.55×) | 38.94 ms (3.48×) | 82.08 ms (7.34×) |
-| `form_hashmap_false_sharing`  | 12.01 ms | 9.58 ms (0.80×) | 86.85 ms (7.23×) | 36.72 ms (3.06×) |
-| `form_hashmap_walk_large`     | 1.15 ms | 0.39 ms (0.33×) | 0.77 ms (0.67×) | 7.00 ms (6.08×) |
+| `bus_dispatch_cross_pool`     | 25.08 ms | 7.72 ms (0.308×) | 39.83 ms (1.59×) | 82.32 ms (3.28×) |
+| `form_hashmap_false_sharing`  | 15.91 ms | 9.95 ms (0.625×) | 84.88 ms (5.34×) | 36.20 ms (2.28×) |
+| `form_hashmap_walk_large`     | 1.20 ms | 381.18 µs (0.317×) | 729.95 µs (0.608×) | 7.62 ms (6.35×) |
 
 `form_hashmap_false_sharing` exercises the F.32-1γ-v2
 `sync = lockfree` discipline (cell-level CAS on the
@@ -107,25 +115,30 @@ roughly steady after substrate-race fixes) from the
 tombstone-aware probe + the lf_enter atomic-load fast
 path replacing the previous code's separate len-check.
 
-A second update later the same day (substrate-race fixes:
-bus queue multi-thread flag, arena subregion mutex,
-pthread_once on env-var helpers) added correctness cost to
-the bus-dispatch hot path. `lotus_bus_queue_drain` now
-always takes its mutex when a cooperative pool worker is
-running — previously it skipped the lock for cooperative
-workloads (the bug being fixed) and silently raced on
-head/tail. Visible delta vs the morning's snapshot:
-`bus_dispatch` 8.87 → 9.59 ms (+8%), `bus_dispatch_cross_pool`
-10.03 → 11.18 ms (+11%), `bus_dispatch_heap_payload` 4.58
-→ 5.15 ms (+12%). The arena mutex adds smaller per-locus
-cost (~tens of ns per create/destroy) that doesn't surface
-above noise on any single bench.
+A substrate-race-fix pass (bus queue multi-thread flag,
+arena subregion mutex, pthread_once on env-var helpers)
+briefly added correctness cost to the bus-dispatch hot path
+— `lotus_bus_queue_drain` always takes its mutex under a
+cooperative pool worker, fixing a silent head/tail race
+(the v0.8.1 grid caught this as `bus_dispatch` 8.87 → 9.59
+ms). **GH #125 has since more than recovered it:** bounding
+the cooperative bus queue (default 8192-cell cap) replaced
+the unbounded backlog with a far more cache-friendly fixed
+ring, cutting both latency and resident memory across the
+bus family. Net vs the v0.8.1 snapshot: `bus_dispatch`
+9.59 → 2.82 ms, `bus_dispatch_heap_payload` 5.15 → 2.08 ms
+(maxrss 31 → 10 MB), `stream_aggregator` 19.50 → 5.26 ms
+(maxrss 110 → 9.7 MB). `bus_dispatch_cross_pool` runs the
+other way — ~11 → 25 ms — a correctness-driven increase
+(per-thread-correct wire dispatch + the per-arena subregion
+lock), within its widened 0.40 tolerance and documented in
+`baselines.json`.
 
 ### App benches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `stream_aggregator`  | 19.50 ms | 0.23 ms (0.01×) | 1.72 ms (0.09×) | 31.34 ms (1.61×) |
+| `stream_aggregator`  | 5.26 ms | 229.21 µs (0.0436×) | 1.71 ms (0.326×) | 30.85 ms (5.87×) |
 
 ### Refreshing the grid
 
