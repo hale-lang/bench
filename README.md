@@ -140,6 +140,54 @@ lock), within its widened 0.40 tolerance and documented in
 |---|---:|---:|---:|---:|
 | `stream_aggregator`  | 5.26 ms | 229.21 µs (0.0436×) | 1.71 ms (0.326×) | 30.85 ms (5.87×) |
 
+### Cross-process SHM delivery (`xproc/`)
+
+**Separate from the main grid above.** This bench lives entirely
+under `xproc/` and is **not** run by the top-level `run.sh`; run it
+with `xproc/run.sh`. It measures *end-to-end cross-process zero-copy
+shared-memory delivery throughput*: a PRODUCER process floods
+N = 200 000 fixed 16-byte records (`px` = sequence 0..N-1, `sz` =
+px+1) into a shared-memory ring sized to hold all N without wrap
+(no drops), and a READER process times wall-clock from the first
+record (px=0) to the last (px=N-1), printing `elapsed_ns`. All
+timing is on the reader's one clock, so no cross-process clock sync
+is needed. This is the cross-process counterpart to the
+single-process `bus_publish_shm_ring` microbench (which measures
+publish-in-isolation and unfairly favors bare in-process array
+writes — a different question).
+
+Snapshot (AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18, N=200 000,
+median of 10 runs):
+
+| language | median | ratio_vs_hale |
+|---|---:|---:|
+| **Hale** | 10.99 ms | 1.00× |
+| Go | 3.13 ms | 0.28× |
+| Node | 9.90 ms | 0.90× † |
+| Python | 32.73 ms | 2.98× |
+
+The honest finding is about *ease and capability*, not winning the
+microbench. **Hale** gets you typed cross-process zero-copy delivery
+from a single binding line — `Tick: shm_ring("/name", slot_count:
+…) where zero_copy;` — with the ring lifecycle, reader-thread
+polling, release/acquire publish, and atexit `shm_unlink` all
+handled by the runtime; the program just `publish`es and a handler
+fires. **Go** and **Python** both reach real POSIX `/dev/shm` mmap
+with stdlib only (`syscall.Mmap` / stdlib `mmap`), but you hand-roll
+the file creation, `ftruncate`, slot layout, and the published
+write-index the reader spins on — Go's hand-rolled path is the
+fastest raw number here (0.28×), Python's interpreter overhead on
+per-slot byte packing makes it ~3× slower. **Node** has *no* stdlib
+cross-process shared memory at all (no mmap / POSIX shm without a
+native addon, which this repo's no-extra-deps rule forbids); the row
+above (†) is `worker_threads` + `SharedArrayBuffer`, which is shared
+memory between **threads in one process**, not between processes — a
+strictly weaker capability shown for honesty, so its number is *not*
+directly comparable to the cross-process siblings. The takeaway:
+Go and Python can match or beat Hale's raw throughput once you write
+the plumbing; Hale's win is that the typed cross-process zero-copy
+path is one declarative line, and Node simply has no stdlib answer.
+
 ### Refreshing the grid
 
 This grid is a manual snapshot. Refresh it:
