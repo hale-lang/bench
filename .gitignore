@@ -23,6 +23,8 @@ c-twins/*
 # and the Go binary.
 xproc/shm_xproc_reader
 xproc/shm_xproc_producer
+xproc/shm_xproc_large_reader
+xproc/shm_xproc_large_producer
 xproc/*.bin
 xproc/*.go.bin
 

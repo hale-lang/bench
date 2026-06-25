@@ -145,26 +145,46 @@ lock), within its widened 0.40 tolerance and documented in
 **Separate from the main grid above.** This bench lives entirely
 under `xproc/` and is **not** run by the top-level `run.sh`; run it
 with `xproc/run.sh`. It measures *end-to-end cross-process zero-copy
-shared-memory delivery throughput*: a PRODUCER process floods
-N = 200 000 fixed 16-byte records (`px` = sequence 0..N-1, `sz` =
-px+1) into a shared-memory ring sized to hold all N without wrap
+shared-memory delivery throughput*: a PRODUCER process floods N fixed
+records into a shared-memory ring sized to hold all N without wrap
 (no drops), and a READER process times wall-clock from the first
-record (px=0) to the last (px=N-1), printing `elapsed_ns`. All
-timing is on the reader's one clock, so no cross-process clock sync
-is needed. This is the cross-process counterpart to the
+record to the last, printing `elapsed_ns`. All timing is on the
+reader's one clock, so no cross-process clock sync is needed. This is the cross-process counterpart to the
 single-process `bus_publish_shm_ring` microbench (which measures
 publish-in-isolation and unfairly favors bare in-process array
 writes — a different question).
 
-Snapshot (AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18, N=200 000,
-median of 10 runs):
+There are **two variants** (run both with `xproc/run.sh`):
+
+- **small** — N = 200 000 fixed 16-byte records (two int64s). This
+  is *dispatch-bound*: the payload is so small that copy-vs-zero-copy
+  is noise, so per-record delivery cost dominates.
+- **large** — N = 20 000 ~4 KB records (512 int64s); the reader does
+  real work on the **whole** payload (sums all 512 fields into a
+  checksum that's asserted against an expected value). This is
+  *copy-bound*: where a copy-based reader would eat a 4 KB memcpy per
+  record, so it's where zero-copy read should pay off.
+
+Snapshots (AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18, median of 10
+runs):
+
+**small — N = 200 000, 16-byte records**
 
 | language | median | ratio_vs_hale |
 |---|---:|---:|
-| **Hale** | 10.99 ms | 1.00× |
-| Go | 3.13 ms | 0.28× |
-| Node | 9.90 ms | 0.90× † |
-| Python | 32.73 ms | 2.98× |
+| **Hale** | 10.84 ms | 1.00× |
+| Go | 2.59 ms | 0.24× |
+| Node | 10.07 ms | 0.93× † |
+| Python | 32.82 ms | 3.03× |
+
+**large — N = 20 000, ~4 KB records (reader sums whole payload)**
+
+| language | median | ratio_vs_hale |
+|---|---:|---:|
+| **Hale** | 31.12 ms | 1.00× |
+| Go | 17.30 ms | 0.56× |
+| Node | 105.84 ms | 3.40× † |
+| Python | 341.35 ms | 10.97× |
 
 The honest finding is about *ease and capability*, not winning the
 microbench. **Hale** gets you typed cross-process zero-copy delivery
@@ -175,18 +195,67 @@ handled by the runtime; the program just `publish`es and a handler
 fires. **Go** and **Python** both reach real POSIX `/dev/shm` mmap
 with stdlib only (`syscall.Mmap` / stdlib `mmap`), but you hand-roll
 the file creation, `ftruncate`, slot layout, and the published
-write-index the reader spins on — Go's hand-rolled path is the
-fastest raw number here (0.28×), Python's interpreter overhead on
-per-slot byte packing makes it ~3× slower. **Node** has *no* stdlib
+write-index the reader spins on. **Node** has *no* stdlib
 cross-process shared memory at all (no mmap / POSIX shm without a
-native addon, which this repo's no-extra-deps rule forbids); the row
-above (†) is `worker_threads` + `SharedArrayBuffer`, which is shared
+native addon, which this repo's no-extra-deps rule forbids); the rows
+marked † are `worker_threads` + `SharedArrayBuffer`, which is shared
 memory between **threads in one process**, not between processes — a
 strictly weaker capability shown for honesty, so its number is *not*
-directly comparable to the cross-process siblings. The takeaway:
-Go and Python can match or beat Hale's raw throughput once you write
-the plumbing; Hale's win is that the typed cross-process zero-copy
-path is one declarative line, and Node simply has no stdlib answer.
+directly comparable to the cross-process siblings.
+
+**Did the large payload vindicate "Hale wins cross-process"? No — but
+it narrowed the gap.** The hypothesis was that Hale's zero-copy read
+(handler reads fields *through the slot pointer*, no per-record
+deserialize) would overtake the siblings once a 4 KB payload made the
+copy real. It did not: Go's hand-rolled reader (0.56×) is still ~1.8×
+faster than Hale at 4 KB. What *did* happen is the expected crossover
+in **relative** terms — Hale closes from 0.24× of Go's time at 16 B to
+0.56× at 4 KB, i.e. Hale's per-record overhead amortizes better as the
+payload grows. But the *bare-loop* siblings never actually pay the copy
+the hypothesis assumed: Go reads the mmap slot through an `unsafe.Slice`
+in place, Python sums a `memoryview.cast("q")` over the mapping — both
+read in place, no per-record 4 KB copy — so they keep their structural
+edge (no per-record function call) at 4 KB just as at 16 B. The
+hypothesis only holds against a *strawman* copy-out reader, which none
+of these idiomatic siblings actually are.
+
+**Is Hale's shm read genuinely zero-copy for a typed struct? Yes —
+verified in the runtime.** `shm_ring_reader_thread` in
+`crates/hale-codegen/runtime/lotus_shm_ring.c` calls
+`handler_fn(self_ptr, slot)` where `slot` is the raw pointer returned
+by `lotus_shm_ring_read_slot` (= `ring->slots_base + idx*slot_size`) —
+no memcpy, no deserialize into the subscriber's arena. The codegen
+side (`emit_bus_register_shm_ring` in `crates/hale-codegen/src/bus/
+runtime.rs`) confirms it: unlike the in-process `lotus_bus_register`
+path it passes **no** deserialize fn, and the handler signature is
+identical to the in-process one — so `fn on_tick(t: Payload)` reads
+`t.field` straight through the slot pointer. (This is distinct from
+the regular in-process bus, which *does* serialize→deserialize a copy
+into each subscriber's arena.)
+
+**Caveat — a real Hale limitation this bench surfaced.** The large
+payload was *meant* to be `type Blob { tag: Int; data: [Int; 511]; }`
+(an idiomatic fixed-array field ≈ 4 KB). That **segfaults the reader
+cross-process.** Hale's codegen lays out a fixed-size array field as
+an *out-of-line arena pointer* inside the struct (`CodegenTy::Array`
+→ `ptr` in `crates/hale-codegen/src/types/mod.rs`), so the shm slot
+holds only a 16-byte `{tag, ptr}` and the pointer dangles in the
+reader's address space — even though `is_flat_shapeable` in
+`hale-types` *accepts* a fixed-size array as flat (so `where
+zero_copy` is not rejected). The typecheck says "flat, zero-copy OK"
+but the layout isn't actually inlined: a genuine flatten-the-array bug
+/ optimization target. The workaround used here is a **flat struct of
+512 scalar `Int` fields** (4096 bytes), which codegen *does* inline —
+verified by the 4 MB shm size matching 512×8 B per slot and by the
+reader's checksum matching the expected value cross-process. So the
+Hale large-payload number is real and correct, but it required
+side-stepping the array-field layout: today you can't carry a fixed
+array inline through a zero-copy shm slot. The takeaway across both
+variants: idiomatic bare-loop Go/Python keep a structural edge at any
+payload size; Hale's wins are *ergonomics* (one declarative line for
+typed cross-process zero-copy delivery) and *capability* (Node has no
+stdlib answer at all) — not the raw microbench, and the array-field
+gap is a concrete thing to fix before the zero-copy story is complete.
 
 ### Refreshing the grid
 
