@@ -1,0 +1,21 @@
+// Cross-process SHM delivery — Hale PRODUCER. Floods n records into the
+// shm ring (px = sequence number); the reader times delivery.
+type TickPayload { px: Int; sz: Int; }
+topic Tick { payload: TickPayload; }
+
+locus Producer {
+    params { n: Int = 200000; }
+    bus { publish Tick; }
+    run() {
+        let mut i = 0;
+        while i < self.n { Tick <- TickPayload { px: i, sz: i + 1 }; i = i + 1; }
+    }
+}
+
+main locus App {
+    bindings {
+        Tick: shm_ring("/bench-shm-xproc", slot_count: 262144, on_overflow: drop) where zero_copy;
+    }
+}
+
+fn main() { App { }; Producer { }; }

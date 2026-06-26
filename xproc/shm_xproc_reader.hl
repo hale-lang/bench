@@ -1,0 +1,31 @@
+// Cross-process SHM delivery — Hale READER. Subscribes to the shm ring,
+// times from the first record (px=0) to the last (px=n-1), prints
+// elapsed_ns, exits. Started first so its reader thread is polling.
+type TickPayload { px: Int; sz: Int; }
+topic Tick { payload: TickPayload; }
+
+locus Sub {
+    params { t0: Int = 0; n: Int = 200000; }
+    bus { subscribe Tick as on_tick; }
+    fn on_tick(t: TickPayload) {
+        if t.px == 0 { self.t0 = std::time::monotonic_ns(); }
+        if t.px == self.n - 1 {
+            let elapsed = std::time::monotonic_ns() - self.t0;
+            print("iters="); println(self.n);
+            print("elapsed_ns="); println(elapsed);
+            std::process::exit(0);
+        }
+    }
+}
+
+main locus App {
+    bindings {
+        Tick: shm_ring("/bench-shm-xproc", slot_count: 262144, on_overflow: drop) where zero_copy;
+    }
+}
+
+fn main() {
+    App { };
+    Sub { };
+    time::sleep(30s);   // stay alive; the handler exits on completion
+}

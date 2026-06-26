@@ -17,6 +17,17 @@ app/*
 c-twins/*
 !c-twins/*.c
 
+# xproc/ (cross-process SHM delivery bench). Keep the language
+# sources + scripts tracked; ignore compiled artifacts: the Hale
+# reader/producer binaries (extensionless, named after their .hl)
+# and the Go binary.
+xproc/shm_xproc_reader
+xproc/shm_xproc_producer
+xproc/shm_xproc_large_reader
+xproc/shm_xproc_large_producer
+xproc/*.bin
+xproc/*.go.bin
+
 # OS / editor
 .DS_Store
 .vscode/

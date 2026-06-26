@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-11T00:00:00Z",
+  "updated_at": "2026-06-25T00:00:00Z",
   "benches": {
     "bus_dispatch": {
       "kind": "micro",
@@ -24,16 +24,17 @@
     },
     "form_hashmap_walk_large": {
       "kind": "micro",
-      "elapsed_ns": 6911261019,
-      "maxrss_kb": 12000,
+      "elapsed_ns": 1311232,
+      "maxrss_kb": 16312,
       "tolerance": 0.3,
-      "note": "F.32-4a baseline (2026-05-24). 100k entries pre-populated, then full key_at/entry_at walk = O(N^2) since each call is O(N). Slow by design \u2014 exists to detect TLB pressure / cache-locality regressions. LOTUS_HUGE_PAGES=1 should reduce this once the operator reserves huge pages."
+      "note": "Re-baselined 2026-06-25 (15-iter median): key_at/entry_at are now O(1) dense-indexed access, not the O(N) linear scan the prior note assumed \u2014 the full 100k walk dropped 6911 ms -> 1.31 ms (~5700x). Verified correct (len=100000, sum=14999850000). The earlier 'O(N^2) by design / slow' framing is obsolete; this now measures O(N) iteration throughput on a working set past L1/L2. Prior value was last measured 2026-05-24."
     },
     "bus_dispatch_heap_payload": {
       "kind": "micro",
-      "elapsed_ns": 4838914,
-      "maxrss_kb": 31456,
-      "tolerance": 0.3
+      "elapsed_ns": 2075010,
+      "maxrss_kb": 10112,
+      "tolerance": 0.3,
+      "note": "Re-baselined 2026-06-25 (15-iter median): 4.84 -> 2.08 ms, maxrss 31456 -> 10112 KB \u2014 the GH #125 bounded bus queue (8192-cell cap), same signature as bus_dispatch."
     },
     "bus_publish_shm_ring": {
       "kind": "micro",
@@ -61,9 +62,10 @@
     },
     "form_hashmap_get": {
       "kind": "micro",
-      "elapsed_ns": 8865979,
-      "maxrss_kb": 48788,
-      "tolerance": 0.3
+      "elapsed_ns": 4956499,
+      "maxrss_kb": 49140,
+      "tolerance": 0.3,
+      "note": "Re-baselined 2026-06-25 (15-iter median): 8.87 -> 4.96 ms, a real improvement since the 05-25/06-11 baselines (faster hashmap lookup path). No bus constructs, so independent of GH #125; cause not pinned to a specific commit. maxrss ~flat."
     },
     "form_hashmap_set": {
       "kind": "micro",
@@ -98,9 +100,10 @@
     },
     "pipeline_3stage": {
       "kind": "micro",
-      "elapsed_ns": 7516528,
-      "maxrss_kb": 39124,
-      "tolerance": 0.3
+      "elapsed_ns": 3805917,
+      "maxrss_kb": 9712,
+      "tolerance": 0.3,
+      "note": "Re-baselined 2026-06-25 (15-iter median): 7.52 -> 3.81 ms, maxrss 39124 -> 9712 KB \u2014 a 3-stage bus pipeline; the GH #125 bounded bus queue is on its hot path."
     },
     "tree_fanout": {
       "kind": "micro",
@@ -116,9 +119,10 @@
     },
     "stream_aggregator": {
       "kind": "app",
-      "elapsed_ns": 18109545,
-      "maxrss_kb": 109584,
-      "tolerance": 0.3
+      "elapsed_ns": 5255618,
+      "maxrss_kb": 9732,
+      "tolerance": 0.3,
+      "note": "Re-baselined 2026-06-25 (15-iter median): 18.11 -> 5.26 ms and maxrss 109584 -> 9732 KB. The bounded cooperative bus queue (GH #125, default 8192-cell cap) replaced the unbounded backlog \u2014 same cache-friendliness win recorded on bus_dispatch; this bus-heavy app benefits most (~11x less resident)."
     },
     "json_parse": {
       "kind": "micro",
@@ -126,6 +130,13 @@
       "maxrss_kb": 30340,
       "tolerance": 0.3,
       "note": "JSON parse throughput: 200k parses of a 7-field market-data quote via the inlined Type::from_json. ~1.15x behind V8 JSON.parse, beats Go encoding/json ~2.4x and Python json.loads ~3.5x. Baselined 2026-06-09 after inline-parser + string-fast-path + byte_at/range_eq leaf-primitive inlining (was ~291ms via the cursor)."
+    },
+    "form_chunk_hint_multi_locus": {
+      "kind": "micro",
+      "elapsed_ns": 202724414,
+      "maxrss_kb": 13544,
+      "tolerance": 0.3,
+      "note": "Baselined 2026-06-25 (15-iter median) \u2014 previously untracked (a .hl with no baseline entry, so it gated nothing). @form chunk-hint across multiple loci; ~203 ms."
     }
   }
 }

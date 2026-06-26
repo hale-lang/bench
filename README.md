@@ -34,7 +34,7 @@ Each invocation writes a timestamped JSON report under
 
 ## Cross-language comparative grid
 
-Latest snapshot: **Hale v0.8.1** (2026-05-26), AMD Ryzen 7
+Latest snapshot: **Hale v0.8.3** (2026-06-25), AMD Ryzen 7
 9800X3D / x86_64 / Linux 6.18.
 
 Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
@@ -48,39 +48,47 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `loop_overhead`             | 12.06 ms | 19.75 ms (1.64×) | 20.87 ms (1.73×) | 3.60 s (298×) |
-| `fn_call`                   | 16.56 ms | 7.72 ms (0.47×) | 3.22 ms (0.19×) | 387.08 ms (23.4×) |
-| `locus_instantiation`       | 2.03 ms | 0.15 ms (0.08×) | 3.68 ms (1.81×) | 12.06 ms (5.94×) |
-| `bus_dispatch`              | 9.59 ms | 0.05 ms (0.005×) | 0.34 ms (0.035×) | 1.15 ms (0.12×) |
-| `bus_dispatch_heap_payload` | 5.15 ms | — | — | — |
-| `bus_publish_shm_ring`      | 1.38 ms | — | — | — |
-| `form_vec_push`             | 30.96 ms | 3.12 ms (0.10×) | 3.69 ms (0.12×) | 13.11 ms (0.42×) |
-| `form_vec_get`              | 9.71 ms | 0.04 ms (0.004×) | 0.64 ms (0.07×) | 5.66 ms (0.58×) |
-| `form_hashmap_set`          | 45.19 ms | 49.37 ms (1.09×) | 83.48 ms (1.85×) | 270.01 ms (5.97×) |
-| `form_hashmap_get`          | 5.90 ms | 1.10 ms (0.19×) | 2.53 ms (0.43×) | 9.43 ms (1.60×) |
+| `loop_overhead`             | 11.57 ms | 19.21 ms (1.66×) | 20.33 ms (1.76×) | 3.36 s (290×) |
+| `fn_call`                   | 16.46 ms | 7.69 ms (0.467×) | 3.24 ms (0.197×) | 356.73 ms (21.7×) |
+| `locus_instantiation`       | 2.41 ms | 152.66 µs (0.0633×) | 1.02 ms (0.422×) | 12.67 ms (5.25×) |
+| `bus_dispatch`              | 2.82 ms | 46.21 µs (0.0164×) | 308.33 µs (0.109×) | 1.09 ms (0.384×) |
+| `bus_dispatch_heap_payload` | 2.03 ms | — | — | — |
+| `bus_publish_shm_ring`      | 1.34 ms | — | — | — |
+| `form_vec_push`             | 28.57 ms | 2.66 ms (0.093×) | 3.68 ms (0.129×) | 12.78 ms (0.447×) |
+| `form_vec_get`              | 9.58 ms | 38.77 µs (0.004×) | 671.92 µs (0.0701×) | 5.57 ms (0.582×) |
+| `form_hashmap_set`          | 43.24 ms | 47.80 ms (1.11×) | 81.57 ms (1.89×) | 262.14 ms (6.06×) |
+| `form_hashmap_get`          | 5.23 ms | 1.09 ms (0.208×) | 2.47 ms (0.473×) | 10.51 ms (2.01×) |
+| `json_parse`                | 57.97 ms | 150.02 ms (2.59×) | 51.04 ms (0.88×) | 213.97 ms (3.69×) |
+
+`json_parse` is 200k parses of a 7-field market-data quote
+via the inlined `Type::from_json`. Hale **beats Go's
+encoding/json 2.59× and Python's json.loads 3.69×**, and
+sits ~12% behind V8's `JSON.parse` (0.88×) — the closest a
+non-V8 contender gets here, after the inline-parser +
+string-fast-path + leaf-primitive inlining work.
 
 ### Amortized microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `vec_amortized`     | 1.05 ms | 1.37 ms (1.30×) | 3.13 ms (2.98×) | 13.91 ms (13.2×) |
-| `fn_scratch_work`   | 0.42 ms | 0.48 ms (1.14×) | 0.95 ms (2.25×) | 2.59 ms (6.11×) |
-| `coord_with_churn`  | 46.86 µs | 0.16 µs (0.003×) | 32.51 µs (0.69×) | 4.25 µs (0.09×) |
+| `vec_amortized`     | 959.28 µs | 1.25 ms (1.3×) | 2.93 ms (3.05×) | 13.23 ms (13.8×) |
+| `fn_scratch_work`   | 420.75 µs | 449.95 µs (1.07×) | 952.79 µs (2.26×) | 2.61 ms (6.2×) |
+| `coord_with_churn`  | 42.96 µs | 0.16 µs (0.0037×) | 32.18 µs (0.749×) | 4.06 µs (0.0944×) |
 
 ### Coordinated-workload microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `tree_fanout`      | 22.88 µs | 8.16 µs (0.36×) | 311.40 µs (13.61×) | 580.63 µs (25.37×) |
-| `pipeline_3stage`  | 7.71 ms | 0.22 ms (0.03×) | 1.25 ms (0.16×) | 7.40 ms (0.96×) |
+| `tree_fanout`      | 19.50 µs | 8.01 µs (0.411×) | 242.45 µs (12.4×) | 575.17 µs (29.5×) |
+| `pipeline_3stage`  | 3.89 ms | 214.93 µs (0.0552×) | 1.10 ms (0.281×) | 6.98 ms (1.79×) |
 
 ### Cross-pool / cache microbenches (F.32)
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `bus_dispatch_cross_pool`     | 11.18 ms | 6.18 ms (0.55×) | 38.94 ms (3.48×) | 82.08 ms (7.34×) |
-| `form_hashmap_false_sharing`  | 12.01 ms | 9.58 ms (0.80×) | 86.85 ms (7.23×) | 36.72 ms (3.06×) |
-| `form_hashmap_walk_large`     | 1.15 ms | 0.39 ms (0.33×) | 0.77 ms (0.67×) | 7.00 ms (6.08×) |
+| `bus_dispatch_cross_pool`     | 25.08 ms | 7.72 ms (0.308×) | 39.83 ms (1.59×) | 82.32 ms (3.28×) |
+| `form_hashmap_false_sharing`  | 15.91 ms | 9.95 ms (0.625×) | 84.88 ms (5.34×) | 36.20 ms (2.28×) |
+| `form_hashmap_walk_large`     | 1.20 ms | 381.18 µs (0.317×) | 729.95 µs (0.608×) | 7.62 ms (6.35×) |
 
 `form_hashmap_false_sharing` exercises the F.32-1γ-v2
 `sync = lockfree` discipline (cell-level CAS on the
@@ -107,25 +115,147 @@ roughly steady after substrate-race fixes) from the
 tombstone-aware probe + the lf_enter atomic-load fast
 path replacing the previous code's separate len-check.
 
-A second update later the same day (substrate-race fixes:
-bus queue multi-thread flag, arena subregion mutex,
-pthread_once on env-var helpers) added correctness cost to
-the bus-dispatch hot path. `lotus_bus_queue_drain` now
-always takes its mutex when a cooperative pool worker is
-running — previously it skipped the lock for cooperative
-workloads (the bug being fixed) and silently raced on
-head/tail. Visible delta vs the morning's snapshot:
-`bus_dispatch` 8.87 → 9.59 ms (+8%), `bus_dispatch_cross_pool`
-10.03 → 11.18 ms (+11%), `bus_dispatch_heap_payload` 4.58
-→ 5.15 ms (+12%). The arena mutex adds smaller per-locus
-cost (~tens of ns per create/destroy) that doesn't surface
-above noise on any single bench.
+A substrate-race-fix pass (bus queue multi-thread flag,
+arena subregion mutex, pthread_once on env-var helpers)
+briefly added correctness cost to the bus-dispatch hot path
+— `lotus_bus_queue_drain` always takes its mutex under a
+cooperative pool worker, fixing a silent head/tail race
+(the v0.8.1 grid caught this as `bus_dispatch` 8.87 → 9.59
+ms). **GH #125 has since more than recovered it:** bounding
+the cooperative bus queue (default 8192-cell cap) replaced
+the unbounded backlog with a far more cache-friendly fixed
+ring, cutting both latency and resident memory across the
+bus family. Net vs the v0.8.1 snapshot: `bus_dispatch`
+9.59 → 2.82 ms, `bus_dispatch_heap_payload` 5.15 → 2.08 ms
+(maxrss 31 → 10 MB), `stream_aggregator` 19.50 → 5.26 ms
+(maxrss 110 → 9.7 MB). `bus_dispatch_cross_pool` runs the
+other way — ~11 → 25 ms — a correctness-driven increase
+(per-thread-correct wire dispatch + the per-arena subregion
+lock), within its widened 0.40 tolerance and documented in
+`baselines.json`.
 
 ### App benches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `stream_aggregator`  | 19.50 ms | 0.23 ms (0.01×) | 1.72 ms (0.09×) | 31.34 ms (1.61×) |
+| `stream_aggregator`  | 5.26 ms | 229.21 µs (0.0436×) | 1.71 ms (0.326×) | 30.85 ms (5.87×) |
+
+### Cross-process SHM delivery (`xproc/`)
+
+**Separate from the main grid above.** This bench lives entirely
+under `xproc/` and is **not** run by the top-level `run.sh`; run it
+with `xproc/run.sh`. It measures *end-to-end cross-process zero-copy
+shared-memory delivery throughput*: a PRODUCER process floods N fixed
+records into a shared-memory ring sized to hold all N without wrap
+(no drops), and a READER process times wall-clock from the first
+record to the last, printing `elapsed_ns`. All timing is on the
+reader's one clock, so no cross-process clock sync is needed. This is the cross-process counterpart to the
+single-process `bus_publish_shm_ring` microbench (which measures
+publish-in-isolation and unfairly favors bare in-process array
+writes — a different question).
+
+There are **two variants** (run both with `xproc/run.sh`):
+
+- **small** — N = 200 000 fixed 16-byte records (two int64s). This
+  is *dispatch-bound*: the payload is so small that copy-vs-zero-copy
+  is noise, so per-record delivery cost dominates.
+- **large** — N = 20 000 ~4 KB records (512 int64s); the reader does
+  real work on the **whole** payload (sums all 512 fields into a
+  checksum that's asserted against an expected value). This is
+  *copy-bound*: where a copy-based reader would eat a 4 KB memcpy per
+  record, so it's where zero-copy read should pay off.
+
+Snapshots (AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18, median of 10
+runs):
+
+**small — N = 200 000, 16-byte records**
+
+| language | median | ratio_vs_hale |
+|---|---:|---:|
+| **Hale** | 10.84 ms | 1.00× |
+| Go | 2.59 ms | 0.24× |
+| Node | 10.07 ms | 0.93× † |
+| Python | 32.82 ms | 3.03× |
+
+**large — N = 20 000, ~4 KB records (reader sums whole payload)**
+
+| language | median | ratio_vs_hale |
+|---|---:|---:|
+| **Hale** | 31.12 ms | 1.00× |
+| Go | 17.30 ms | 0.56× |
+| Node | 105.84 ms | 3.40× † |
+| Python | 341.35 ms | 10.97× |
+
+The honest finding is about *ease and capability*, not winning the
+microbench. **Hale** gets you typed cross-process zero-copy delivery
+from a single binding line — `Tick: shm_ring("/name", slot_count:
+…) where zero_copy;` — with the ring lifecycle, reader-thread
+polling, release/acquire publish, and atexit `shm_unlink` all
+handled by the runtime; the program just `publish`es and a handler
+fires. **Go** and **Python** both reach real POSIX `/dev/shm` mmap
+with stdlib only (`syscall.Mmap` / stdlib `mmap`), but you hand-roll
+the file creation, `ftruncate`, slot layout, and the published
+write-index the reader spins on. **Node** has *no* stdlib
+cross-process shared memory at all (no mmap / POSIX shm without a
+native addon, which this repo's no-extra-deps rule forbids); the rows
+marked † are `worker_threads` + `SharedArrayBuffer`, which is shared
+memory between **threads in one process**, not between processes — a
+strictly weaker capability shown for honesty, so its number is *not*
+directly comparable to the cross-process siblings.
+
+**Did the large payload vindicate "Hale wins cross-process"? No — but
+it narrowed the gap.** The hypothesis was that Hale's zero-copy read
+(handler reads fields *through the slot pointer*, no per-record
+deserialize) would overtake the siblings once a 4 KB payload made the
+copy real. It did not: Go's hand-rolled reader (0.56×) is still ~1.8×
+faster than Hale at 4 KB. What *did* happen is the expected crossover
+in **relative** terms — Hale closes from 0.24× of Go's time at 16 B to
+0.56× at 4 KB, i.e. Hale's per-record overhead amortizes better as the
+payload grows. But the *bare-loop* siblings never actually pay the copy
+the hypothesis assumed: Go reads the mmap slot through an `unsafe.Slice`
+in place, Python sums a `memoryview.cast("q")` over the mapping — both
+read in place, no per-record 4 KB copy — so they keep their structural
+edge (no per-record function call) at 4 KB just as at 16 B. The
+hypothesis only holds against a *strawman* copy-out reader, which none
+of these idiomatic siblings actually are.
+
+**Is Hale's shm read genuinely zero-copy for a typed struct? Yes —
+verified in the runtime.** `shm_ring_reader_thread` in
+`crates/hale-codegen/runtime/lotus_shm_ring.c` calls
+`handler_fn(self_ptr, slot)` where `slot` is the raw pointer returned
+by `lotus_shm_ring_read_slot` (= `ring->slots_base + idx*slot_size`) —
+no memcpy, no deserialize into the subscriber's arena. The codegen
+side (`emit_bus_register_shm_ring` in `crates/hale-codegen/src/bus/
+runtime.rs`) confirms it: unlike the in-process `lotus_bus_register`
+path it passes **no** deserialize fn, and the handler signature is
+identical to the in-process one — so `fn on_tick(t: Payload)` reads
+`t.field` straight through the slot pointer. (This is distinct from
+the regular in-process bus, which *does* serialize→deserialize a copy
+into each subscriber's arena.)
+
+**Caveat — a real Hale limitation this bench surfaced.** The large
+payload was *meant* to be `type Blob { tag: Int; data: [Int; 511]; }`
+(an idiomatic fixed-array field ≈ 4 KB). That **segfaults the reader
+cross-process.** Hale's codegen lays out a fixed-size array field as
+an *out-of-line arena pointer* inside the struct (`CodegenTy::Array`
+→ `ptr` in `crates/hale-codegen/src/types/mod.rs`), so the shm slot
+holds only a 16-byte `{tag, ptr}` and the pointer dangles in the
+reader's address space — even though `is_flat_shapeable` in
+`hale-types` *accepts* a fixed-size array as flat (so `where
+zero_copy` is not rejected). The typecheck says "flat, zero-copy OK"
+but the layout isn't actually inlined: a genuine flatten-the-array bug
+/ optimization target. The workaround used here is a **flat struct of
+512 scalar `Int` fields** (4096 bytes), which codegen *does* inline —
+verified by the 4 MB shm size matching 512×8 B per slot and by the
+reader's checksum matching the expected value cross-process. So the
+Hale large-payload number is real and correct, but it required
+side-stepping the array-field layout: today you can't carry a fixed
+array inline through a zero-copy shm slot. The takeaway across both
+variants: idiomatic bare-loop Go/Python keep a structural edge at any
+payload size; Hale's wins are *ergonomics* (one declarative line for
+typed cross-process zero-copy delivery) and *capability* (Node has no
+stdlib answer at all) — not the raw microbench, and the array-field
+gap is a concrete thing to fix before the zero-copy story is complete.
 
 ### Refreshing the grid
 
