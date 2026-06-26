@@ -165,59 +165,80 @@ There are **two variants** (run both with `xproc/run.sh`):
   *copy-bound*: where a copy-based reader would eat a 4 KB memcpy per
   record, so it's where zero-copy read should pay off.
 
-Snapshots (AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18, median of 10
+Snapshots (AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18, median of 20
 runs):
 
 **small — N = 200 000, 16-byte records**
 
 | language | median | ratio_vs_hale |
 |---|---:|---:|
-| **Hale** | 10.84 ms | 1.00× |
-| Go | 2.59 ms | 0.24× |
-| Node | 10.07 ms | 0.93× † |
-| Python | 32.82 ms | 3.03× |
+| **Hale** — per-record handler | 10.80 ms | 1.00× |
+| **Hale** — `Drain<T>` batch | **2.29 ms** | **0.21×** |
+| Go | 2.61 ms | 0.24× |
+| Node | 10.30 ms | 0.95× † |
+| Python | 31.28 ms | 2.90× |
 
 **large — N = 20 000, ~4 KB records (reader sums whole payload)**
 
 | language | median | ratio_vs_hale |
 |---|---:|---:|
-| **Hale** | 31.12 ms | 1.00× |
-| Go | 17.30 ms | 0.56× |
-| Node | 105.84 ms | 3.40× † |
-| Python | 341.35 ms | 10.97× |
+| **Hale** — per-record handler | 33.98 ms | 1.00× |
+| **Hale** — `Drain<T>` batch | 34.36 ms | 1.01× |
+| Go | 17.63 ms | 0.52× |
+| Node | 106.06 ms | 3.12× † |
+| Python | 346.66 ms | 10.20× |
 
-The honest finding is about *ease and capability*, not winning the
-microbench. **Hale** gets you typed cross-process zero-copy delivery
-from a single binding line — `Tick: shm_ring("/name", slot_count:
-…) where zero_copy;` — with the ring lifecycle, reader-thread
-polling, release/acquire publish, and atexit `shm_unlink` all
-handled by the runtime; the program just `publish`es and a handler
-fires. **Go** and **Python** both reach real POSIX `/dev/shm` mmap
+**The `Drain<T>` batch consumer closes the dispatch gap — and on the
+small variant, Hale now wins.** A subscriber whose handler takes
+`Drain<T>` instead of the payload `T` is dispatched **once per
+available batch**; it consumes records in a tight inline `for t in
+feed` loop with no per-record function call and no per-call arena
+scratch:
+
+```hale
+bus { subscribe Tick as on_batch; }            // same binding line
+fn on_batch(feed: Drain<TickPayload>) {
+    for t in feed { /* read t.px in place, zero-copy */ }
+}
+```
+
+The per-record handler dispatch (one call + one arena scratch *per
+record*) was the *entire* structural edge the bare-loop siblings had —
+the ring read itself was already zero-copy (verified below). Removing
+it takes the small / dispatch-bound reader from 10.80 ms to **2.29 ms:
+4.7× faster, and past Go's 2.61 ms.** That's the idiomatic Hale
+consumer — a declarative `subscribe` plus an inline loop, no hand-rolled
+mmap walk — so it's an apples-to-apples win on *both* ergonomics and raw
+throughput. (`hale_drain` in `xproc/run.sh`; the per-record row is kept
+for contrast.)
+
+On the **large / copy-bound** variant the batch form is a wash (1.01×):
+there the per-record cost is dominated by summing 512 fields, not by
+dispatch, so eliminating the call changes nothing and Go stays ~1.9×
+ahead. That remaining gap is now a *compute-codegen* question (Hale's
+512 field loads + adds vs Go's), **not** a delivery-model one —
+`Drain<T>` fixed the delivery model, which is all it was meant to do.
+The honest read: on dispatch-bound delivery Hale is now fastest; on
+compute-bound work over the payload there's a separate optimization gap
+to bare-loop Go that batching doesn't touch.
+
+**On ease and capability** (still true, now on top of the speed win):
+**Hale** gets you typed cross-process zero-copy delivery from a single
+binding line — `Tick: shm_ring("/name", slot_count: …) where
+zero_copy;` — with the ring lifecycle, reader-thread polling,
+release/acquire publish, and atexit `shm_unlink` all handled by the
+runtime. **Go** and **Python** both reach real POSIX `/dev/shm` mmap
 with stdlib only (`syscall.Mmap` / stdlib `mmap`), but you hand-roll
 the file creation, `ftruncate`, slot layout, and the published
-write-index the reader spins on. **Node** has *no* stdlib
-cross-process shared memory at all (no mmap / POSIX shm without a
-native addon, which this repo's no-extra-deps rule forbids); the rows
-marked † are `worker_threads` + `SharedArrayBuffer`, which is shared
-memory between **threads in one process**, not between processes — a
-strictly weaker capability shown for honesty, so its number is *not*
-directly comparable to the cross-process siblings.
-
-**Did the large payload vindicate "Hale wins cross-process"? No — but
-it narrowed the gap.** The hypothesis was that Hale's zero-copy read
-(handler reads fields *through the slot pointer*, no per-record
-deserialize) would overtake the siblings once a 4 KB payload made the
-copy real. It did not: Go's hand-rolled reader (0.56×) is still ~1.8×
-faster than Hale at 4 KB. What *did* happen is the expected crossover
-in **relative** terms — Hale closes from 0.24× of Go's time at 16 B to
-0.56× at 4 KB, i.e. Hale's per-record overhead amortizes better as the
-payload grows. But the *bare-loop* siblings never actually pay the copy
-the hypothesis assumed: Go reads the mmap slot through an `unsafe.Slice`
-in place, Python sums a `memoryview.cast("q")` over the mapping — both
-read in place, no per-record 4 KB copy — so they keep their structural
-edge (no per-record function call) at 4 KB just as at 16 B. The
-hypothesis only holds against a *strawman* copy-out reader, which none
-of these idiomatic siblings actually are.
+write-index the reader spins on — and they read the slot in place (Go
+via `unsafe.Slice`, Python via `memoryview.cast("q")`), so their edge
+was always the *bare loop* (no per-record call), which is exactly what
+`Drain<T>` now matches. **Node** has *no* stdlib cross-process shared
+memory at all (no mmap / POSIX shm without a native addon, which this
+repo's no-extra-deps rule forbids); the rows marked † are
+`worker_threads` + `SharedArrayBuffer`, shared memory between **threads
+in one process**, not between processes — a strictly weaker capability
+shown for honesty, so its number is *not* directly comparable.
 
 **Is Hale's shm read genuinely zero-copy for a typed struct? Yes —
 verified in the runtime.** `shm_ring_reader_thread` in
@@ -250,12 +271,16 @@ verified by the 4 MB shm size matching 512×8 B per slot and by the
 reader's checksum matching the expected value cross-process. So the
 Hale large-payload number is real and correct, but it required
 side-stepping the array-field layout: today you can't carry a fixed
-array inline through a zero-copy shm slot. The takeaway across both
-variants: idiomatic bare-loop Go/Python keep a structural edge at any
-payload size; Hale's wins are *ergonomics* (one declarative line for
-typed cross-process zero-copy delivery) and *capability* (Node has no
-stdlib answer at all) — not the raw microbench, and the array-field
-gap is a concrete thing to fix before the zero-copy story is complete.
+array inline through a zero-copy shm slot. (This caveat is orthogonal
+to the delivery model — it bites the per-record and `Drain<T>` readers
+alike, since both read the same slot layout.) The takeaway across both
+variants: on **dispatch-bound** delivery the `Drain<T>` batch consumer
+makes idiomatic Hale the fastest sibling (past Go), erasing the
+bare-loop edge that per-record dispatch used to concede; on
+**compute-bound** work over a large payload a separate codegen gap to
+bare-loop Go remains (batching doesn't address it), and the array-field
+layout gap is still a concrete thing to fix before the zero-copy story
+is complete.
 
 ### Refreshing the grid
 

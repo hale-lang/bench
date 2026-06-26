@@ -57,8 +57,10 @@ HALE_OK=0
 if [ -x "$HALE" ]; then
   if ( cd "$XPROC_DIR" \
         && "$HALE" build shm_xproc_reader.hl >/dev/null 2>&1 \
+        && "$HALE" build shm_xproc_reader_drain.hl >/dev/null 2>&1 \
         && "$HALE" build shm_xproc_producer.hl >/dev/null 2>&1 \
         && "$HALE" build shm_xproc_large_reader.hl >/dev/null 2>&1 \
+        && "$HALE" build shm_xproc_large_reader_drain.hl >/dev/null 2>&1 \
         && "$HALE" build shm_xproc_large_producer.hl >/dev/null 2>&1 ); then
     HALE_OK=1
   else
@@ -99,13 +101,15 @@ run_lang() {
 }
 
 # small (16-byte) variant
-[ "$HALE_OK" -eq 1 ] && run_lang small hale   "$XPROC_DIR/run-hale.sh"
+[ "$HALE_OK" -eq 1 ] && run_lang small hale       "$XPROC_DIR/run-hale.sh"
+[ "$HALE_OK" -eq 1 ] && run_lang small hale_drain "$XPROC_DIR/run-hale-drain.sh"
 [ "$GO_OK"   -eq 1 ] && run_lang small go     "$XPROC_DIR/shm_xproc.go.bin"
 have python3         && run_lang small python python3 "$XPROC_DIR/shm_xproc.py"
 have node            && run_lang small node   node    "$XPROC_DIR/shm_xproc.js"
 
 # large (~4 KB) variant
-[ "$HALE_OK" -eq 1 ] && run_lang large hale   "$XPROC_DIR/run-hale-large.sh"
+[ "$HALE_OK" -eq 1 ] && run_lang large hale       "$XPROC_DIR/run-hale-large.sh"
+[ "$HALE_OK" -eq 1 ] && run_lang large hale_drain "$XPROC_DIR/run-hale-large-drain.sh"
 [ "$GO_OK"   -eq 1 ] && run_lang large go     "$XPROC_DIR/shm_xproc_large.go.bin"
 have python3         && run_lang large python python3 "$XPROC_DIR/shm_xproc_large.py"
 have node            && run_lang large node   node    "$XPROC_DIR/shm_xproc_large.js"
@@ -128,7 +132,7 @@ print_table() {
   printf '%-10s %12s %14s\n' "language" "median_ms" "ratio_vs_hale"
   printf '%-10s %12s %14s\n' "--------" "---------" "-------------"
   local lang m
-  for lang in hale go node python; do
+  for lang in hale hale_drain go node python; do
     m="${MED[$lang]:-}"
     if [ -n "$m" ]; then
       printf '%-10s %12s %14s\n' "$lang" "$(ms "$m")" "$(ratio "$m" "$hale_med")"

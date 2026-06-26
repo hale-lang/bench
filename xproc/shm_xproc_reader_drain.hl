@@ -1,0 +1,36 @@
+// Cross-process SHM delivery — Hale DRAIN READER. Identical to
+// shm_xproc_reader.hl, but the handler takes `Drain<TickPayload>` and
+// consumes records in a tight inline `for t in feed` loop — one handler
+// call per batch instead of one per record. Same ring, same producer;
+// the only change is the consumption model (the dispatch-bound cost the
+// per-record reader pays is gone).
+type TickPayload { px: Int; sz: Int; }
+topic Tick { payload: TickPayload; }
+
+locus Sub {
+    params { t0: Int = 0; n: Int = 200000; }
+    bus { subscribe Tick as on_batch; }
+    fn on_batch(feed: Drain<TickPayload>) {
+        for t in feed {
+            if t.px == 0 { self.t0 = std::time::monotonic_ns(); }
+            if t.px == self.n - 1 {
+                let elapsed = std::time::monotonic_ns() - self.t0;
+                print("iters="); println(self.n);
+                print("elapsed_ns="); println(elapsed);
+                std::process::exit(0);
+            }
+        }
+    }
+}
+
+main locus App {
+    bindings {
+        Tick: shm_ring("/bench-shm-xproc", slot_count: 262144, on_overflow: drop) where zero_copy;
+    }
+}
+
+fn main() {
+    App { };
+    Sub { };
+    time::sleep(30s);
+}

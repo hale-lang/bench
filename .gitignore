@@ -22,8 +22,10 @@ c-twins/*
 # reader/producer binaries (extensionless, named after their .hl)
 # and the Go binary.
 xproc/shm_xproc_reader
+xproc/shm_xproc_reader_drain
 xproc/shm_xproc_producer
 xproc/shm_xproc_large_reader
+xproc/shm_xproc_large_reader_drain
 xproc/shm_xproc_large_producer
 xproc/*.bin
 xproc/*.go.bin
