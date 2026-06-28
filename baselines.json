@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-25T00:00:00Z",
+  "updated_at": "2026-06-28T00:00:00Z",
   "benches": {
     "bus_dispatch": {
       "kind": "micro",
@@ -81,15 +81,17 @@
     },
     "form_vec_get": {
       "kind": "micro",
-      "elapsed_ns": 1111000,
-      "maxrss_kb": 43984,
-      "tolerance": 0.3
+      "elapsed_ns": 14938,
+      "maxrss_kb": 6800,
+      "tolerance": 0.5,
+      "note": "Re-baselined 2026-06-28: iters unified to 200k to MATCH the .go/.js/.py variants (was 5M here only \u2014 a 25x workload mismatch that made the old cross-language ratio meaningless). At 200k the ~1.6MB working set is L2/L3-resident, isolating the per-element read path. With the compiler's bounds-check elimination (for j in 0..v.len() drops the per-read check) plus native target-cpu + O3 defaults, Hale reads at ~14.9us vs Go's bounds-checked 38.8us (~2.6x FASTER than Go). Small-N bench: median jitters ~11-22us run-to-run, hence tolerance 0.5."
     },
     "form_vec_push": {
       "kind": "micro",
-      "elapsed_ns": 13850000,
-      "maxrss_kb": 82960,
-      "tolerance": 0.3
+      "elapsed_ns": 572855,
+      "maxrss_kb": 9080,
+      "tolerance": 0.35,
+      "note": "Re-baselined 2026-06-28: iters unified to 500k to MATCH the .go/.js/.py variants (was 10M here only \u2014 a 20x workload mismatch). 500k pushes through the doubling-grow path ~17 times. Hale 573us vs Go 2.76ms (~4.8x FASTER per push). The earlier 'push is 11x slower than Go' was the workload-size artifact, not a real gap."
     },
     "locus_instantiation": {
       "kind": "micro",

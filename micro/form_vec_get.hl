@@ -10,11 +10,14 @@ locus IntVec {
 }
 
 fn main() {
-    // Cliff lifted 2026-05-16; reported clean to 10M+. 5M chosen
-    // as the new signal point — the bench does 2× the work of
-    // form_vec_push (populate + read), so half the headroom keeps
-    // wall time comparable.
-    let iters = 5000000;
+    // 200k — MATCHED across all language variants (.go/.js/.py)
+    // so the comparison is apples-to-apples. (Was 5M here only,
+    // 25× the other langs, which made the cross-language ratio a
+    // workload mismatch, not a perf measurement.) At 200k the
+    // working set (~1.6MB) is L2/L3-resident, so this measures the
+    // per-element read path — where the bounds-check elimination
+    // win shows — not raw DRAM bandwidth.
+    let iters = 200000;
     let v = IntVec { };
 
     // Populate (outside timing).
@@ -24,12 +27,16 @@ fn main() {
         i = i + 1;
     }
 
+    // Canonical counted-loop form: `for j in 0..v.len()` over an
+    // unmutated local vec instance. The compiler's bounds-check
+    // elimination proves `j < len(v)` by construction, drops the
+    // per-element check, and lets the read+XOR body vectorize.
+    // `iters == v.len()` here, so the work is identical to the prior
+    // `while j < iters` shape.
     let t0 = std::time::monotonic();
-    let mut j = 0;
     let mut acc = 0;
-    while j < iters {
+    for j in 0..v.len() {
         acc = acc ^ (v.get(j) or raise);
-        j = j + 1;
     }
     let t1 = std::time::monotonic();
     print("iters=");

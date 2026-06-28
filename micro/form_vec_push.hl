@@ -11,11 +11,12 @@ locus IntVec {
 }
 
 fn main() {
-    // Cliff lifted 2026-05-16 (alloca-hoist + arena-reclaim fixes
-    // in the compiler); safe to 20M+. 10M chosen as the new
-    // signal point: still finishes inside the run-time wall while
-    // exercising the doubling-grow path ~23 times.
-    let iters = 10000000;
+    // 500k — MATCHED across all language variants (.go/.js/.py)
+    // so the comparison is apples-to-apples. (Was 10M here only,
+    // 20× the other langs, which made the cross-language ratio a
+    // workload mismatch, not a perf measurement.) Exercises the
+    // doubling-grow path ~17 times.
+    let iters = 500000;
     let v = IntVec { };
     let t0 = std::time::monotonic();
     let mut i = 0;

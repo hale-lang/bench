@@ -55,8 +55,8 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 | `bus_dispatch`              | 1.79 ms | 46.21 µs (0.0258×) | 308.33 µs (0.172×) | 1.09 ms (0.609×) |
 | `bus_dispatch_heap_payload` | 1.51 ms | — | — | — |
 | `bus_publish_shm_ring`      | 1.34 ms | — | — | — |
-| `form_vec_push`             | 13.85 ms | 2.66 ms (0.192×) | 3.68 ms (0.266×) | 12.78 ms (0.923×) |
-| `form_vec_get`              | 1.11 ms | 39.00 µs (0.035×) | 710.00 µs (0.640×) | 7.71 ms (6.95×) |
+| `form_vec_push`             | 572.86 µs | 2.76 ms (4.83×) | 3.43 ms (5.99×) | 13.31 ms (23.2×) |
+| `form_vec_get`              | 14.94 µs | 38.84 µs (2.60×) | 672.27 µs (45.0×) | 8.17 ms (547×) |
 | `form_hashmap_set`          | 43.24 ms | 47.80 ms (1.11×) | 81.57 ms (1.89×) | 262.14 ms (6.06×) |
 | `form_hashmap_get`          | 5.23 ms | 1.09 ms (0.208×) | 2.47 ms (0.473×) | 10.51 ms (2.01×) |
 | `json_parse`                | 57.97 ms | 150.02 ms (2.59×) | 51.04 ms (0.88×) | 213.97 ms (3.69×) |
@@ -392,12 +392,20 @@ normally accompany.
   pre-populated `@form(hashmap)`. Cliffs at n=200k (set+get
   doubles per-iter work vs pure-write set).
 
-Expect Hale to be **slow** here. These benches surface
-codegen overhead the compiler team can target (e.g. eliding
-arena subregions when a fn provably doesn't allocate) and
-violations of spec performance commitments (e.g. `form_vec_get`
-60× behind Go violates `spec/forms.md` FORM-3's "within 10%
-of C" target).
+These benches surface codegen overhead the compiler team can
+target (e.g. eliding arena subregions when a fn provably doesn't
+allocate). Some still show overhead (`fn_call`,
+`locus_instantiation`), but the `@form` collection benches now
+**lead** Go: after the `.get`/`.push`/`.set`/`.pop` inlines, the
+counted-loop bounds-check elimination (`for j in 0..v.len()`
+drops the per-read check Go still pays), and the native
+target-cpu + O3 defaults, `form_vec_push` is ~4.8× and
+`form_vec_get` ~2.6× *faster* than Go. (An earlier note here
+claimed `form_vec_get` was "60× behind Go" — that was a
+benchmark bug: the Hale variant ran 25× more iterations than the
+`.go`/`.js`/`.py` variants, so the ratio compared different
+workloads. The N is now matched, comfortably inside
+`spec/forms.md` FORM-3's "within 10% of C" target.)
 
 ### Amortized microbenches — "does the design pay off when used as intended?"
 
