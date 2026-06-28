@@ -51,9 +51,9 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 | `loop_overhead`             | 11.57 ms | 19.21 ms (1.66×) | 20.33 ms (1.76×) | 3.36 s (290×) |
 | `fn_call`                   | 19.14 ms | 7.72 ms (0.403×) | 4.41 ms (0.230×) | 517.65 ms (27.0×) |
 | `fn_modular`                | 38.65 ms | 15.41 ms (0.399×) | 4.04 ms (0.105×) | 630.74 ms (16.3×) |
-| `locus_instantiation`       | 2.41 ms | 152.66 µs (0.0633×) | 1.02 ms (0.422×) | 12.67 ms (5.25×) |
-| `bus_dispatch`              | 2.82 ms | 46.21 µs (0.0164×) | 308.33 µs (0.109×) | 1.09 ms (0.384×) |
-| `bus_dispatch_heap_payload` | 2.03 ms | — | — | — |
+| `locus_instantiation`       | 1.25 ms | 152.66 µs (0.122×) | 1.02 ms (0.816×) | 12.67 ms (10.1×) |
+| `bus_dispatch`              | 1.79 ms | 46.21 µs (0.0258×) | 308.33 µs (0.172×) | 1.09 ms (0.609×) |
+| `bus_dispatch_heap_payload` | 1.51 ms | — | — | — |
 | `bus_publish_shm_ring`      | 1.34 ms | — | — | — |
 | `form_vec_push`             | 28.57 ms | 2.66 ms (0.093×) | 3.68 ms (0.129×) | 12.78 ms (0.447×) |
 | `form_vec_get`              | 9.58 ms | 38.77 µs (0.004×) | 671.92 µs (0.0701×) | 5.57 ms (0.582×) |
@@ -87,7 +87,7 @@ string-fast-path + leaf-primitive inlining work.
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `bus_dispatch_cross_pool`     | 25.08 ms | 7.72 ms (0.308×) | 39.83 ms (1.59×) | 82.32 ms (3.28×) |
+| `bus_dispatch_cross_pool`     | 10.72 ms | 7.72 ms (0.720×) | 39.83 ms (3.72×) | 82.32 ms (7.68×) |
 | `form_hashmap_false_sharing`  | 15.91 ms | 9.95 ms (0.625×) | 84.88 ms (5.34×) | 36.20 ms (2.28×) |
 | `form_hashmap_walk_large`     | 1.20 ms | 381.18 µs (0.317×) | 729.95 µs (0.608×) | 7.62 ms (6.35×) |
 
@@ -134,6 +134,17 @@ other way — ~11 → 25 ms — a correctness-driven increase
 (per-thread-correct wire dispatch + the per-arena subregion
 lock), within its widened 0.40 tolerance and documented in
 `baselines.json`.
+
+**Method-scratch elision (2026-06-28).** The compiler now skips the
+per-call scratch-arena `malloc`/`free` for a locus method / bus handler
+/ `birth()` that provably allocates nothing and returns a by-value
+scalar (or Unit) — see the `fn_call` / `fn_modular` notes above for the
+free-fn analog. Because a bus handler and a `birth()` are methods, this
+cut the method-heavy benches again on top of the bounded-queue win:
+`bus_dispatch` 2.82 → 1.79 ms, `bus_dispatch_heap_payload` 2.08 →
+1.51 ms, `bus_dispatch_cross_pool` 25 → 10.7 ms, and
+`locus_instantiation` 2.45 → 1.25 ms (`Empty {}`'s `birth()` is now
+scratch-free). Re-baselined.
 
 ### App benches
 

@@ -3,14 +3,14 @@
   "benches": {
     "bus_dispatch": {
       "kind": "micro",
-      "elapsed_ns": 3028503,
+      "elapsed_ns": 1788882,
       "maxrss_kb": 9564,
       "tolerance": 0.3,
       "note": "Re-baselined 2026-06-11 (GH #125): the cooperative bus queue is now bounded (default 8192-cell cap). This bench floods the queue; bounding it cut maxrss 57256->9564 KB AND elapsed 8.74->3.03 ms \u2014 the bounded ~4.5 MB queue is far more cache-friendly than the old ~55 MB unbounded one. Past the cap the publisher inline-drains (backpressure) instead of buffering the whole backlog."
     },
     "bus_dispatch_cross_pool": {
       "kind": "micro",
-      "elapsed_ns": 20500000,
+      "elapsed_ns": 10722673,
       "maxrss_kb": 53756,
       "tolerance": 0.4,
       "note": "F.32-1 baseline (2026-05-25). Cross-pool bus dispatch from main to io pool, 100k iters. Timed region NOW INCLUDES consumer-side drain (poll-wait on self.sub.count until iters) \u2014 F.32-4-prefetch's contribution materializes here. Pre-2026-05-25 the bench timed publisher-only and prefetch was invisible (baseline was 8.80 ms). Tolerance 0.40 because cross-thread scheduling variance + sleep granularity widen the spread. | Re-baselined 2026-05-29: the increase to ~20ms is correctness-driven \u2014 the per-arena subregion_lock (2026-05-26), the 3a9c991 bus_queue_drain race fix, and 0d1f956's per-thread-correct wire dispatch (serialize + per-subscriber deserialize to honor the single-threaded-method invariant). A flat-payload, local-only serialize-skip optimization is a deferred follow-up; the residual here is not a perf bug."
@@ -31,7 +31,7 @@
     },
     "bus_dispatch_heap_payload": {
       "kind": "micro",
-      "elapsed_ns": 2075010,
+      "elapsed_ns": 1512366,
       "maxrss_kb": 10112,
       "tolerance": 0.3,
       "note": "Re-baselined 2026-06-25 (15-iter median): 4.84 -> 2.08 ms, maxrss 31456 -> 10112 KB \u2014 the GH #125 bounded bus queue (8192-cell cap), same signature as bus_dispatch."
@@ -93,7 +93,7 @@
     },
     "locus_instantiation": {
       "kind": "micro",
-      "elapsed_ns": 2450000,
+      "elapsed_ns": 1246789,
       "maxrss_kb": 5248,
       "tolerance": 0.3,
       "note": "Re-baselined 2026-05-29. The per-arena subregion_lock correctness fix (2026-05-26, cross-pool freelist race) raised this ~91% (1.79->3.94ms). hale 856dc7d's single-thread fast-path recovered most of it (->~2.43ms); the residual is the per-arena mutex init, removable only by a lock-free subregion freelist (deferred follow-up). Measured on the dev box; the prior 1.785ms baseline was faster hardware (pre-mutex control here was ~1.99ms)."
