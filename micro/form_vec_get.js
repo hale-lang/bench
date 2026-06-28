@@ -12,7 +12,7 @@ for (let i = 0; i < iters; i++) {
 const t0 = process.hrtime.bigint();
 let acc = 0;
 for (let j = 0; j < iters; j++) {
-    acc = v[j];
+    acc ^= v[j];
 }
 const elapsed = process.hrtime.bigint() - t0;
 console.log(`iters=${iters}`);

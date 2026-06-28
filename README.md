@@ -55,8 +55,8 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 | `bus_dispatch`              | 1.79 ms | 46.21 µs (0.0258×) | 308.33 µs (0.172×) | 1.09 ms (0.609×) |
 | `bus_dispatch_heap_payload` | 1.51 ms | — | — | — |
 | `bus_publish_shm_ring`      | 1.34 ms | — | — | — |
-| `form_vec_push`             | 28.57 ms | 2.66 ms (0.093×) | 3.68 ms (0.129×) | 12.78 ms (0.447×) |
-| `form_vec_get`              | 9.58 ms | 38.77 µs (0.004×) | 671.92 µs (0.0701×) | 5.57 ms (0.582×) |
+| `form_vec_push`             | 13.85 ms | 2.66 ms (0.192×) | 3.68 ms (0.266×) | 12.78 ms (0.923×) |
+| `form_vec_get`              | 1.11 ms | 39.00 µs (0.035×) | 710.00 µs (0.640×) | 7.71 ms (6.95×) |
 | `form_hashmap_set`          | 43.24 ms | 47.80 ms (1.11×) | 81.57 ms (1.89×) | 262.14 ms (6.06×) |
 | `form_hashmap_get`          | 5.23 ms | 1.09 ms (0.208×) | 2.47 ms (0.473×) | 10.51 ms (2.01×) |
 | `json_parse`                | 57.97 ms | 150.02 ms (2.59×) | 51.04 ms (0.88×) | 213.97 ms (3.69×) |

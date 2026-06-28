@@ -1,7 +1,7 @@
 // form_vec_get — @form(vec) indexed read.
 //
 // FORM-3 microbench target. Populate 1M elements once (outside
-// timing), then 1M `get(i) or raise` calls in sequence. Measures
+// timing), then 1M `get(i) or raise` calls, XOR-folded so the read
 // the bounds-check + load + fallible-unwrap path.
 
 @form(vec)
@@ -28,7 +28,7 @@ fn main() {
     let mut j = 0;
     let mut acc = 0;
     while j < iters {
-        acc = v.get(j) or raise;
+        acc = acc ^ (v.get(j) or raise);
         j = j + 1;
     }
     let t1 = std::time::monotonic();

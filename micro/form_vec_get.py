@@ -10,7 +10,7 @@ v = [i for i in range(iters)]
 t0 = time.monotonic_ns()
 acc = 0
 for j in range(iters):
-    acc = v[j]
+    acc ^= v[j]
 elapsed = time.monotonic_ns() - t0
 print(f"iters={iters}")
 print(f"acc={acc}")

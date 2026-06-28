@@ -19,7 +19,7 @@ func main() {
 	t0 := time.Now()
 	acc := 0
 	for j := 0; j < iters; j++ {
-		acc = v[j]
+		acc ^= v[j]
 	}
 	elapsed := time.Since(t0).Nanoseconds()
 
