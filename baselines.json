@@ -50,8 +50,14 @@
     },
     "fn_call": {
       "kind": "micro",
-      "elapsed_ns": 16509134,
-      "maxrss_kb": 5040,
+      "elapsed_ns": 19138505,
+      "maxrss_kb": 5544,
+      "tolerance": 0.3
+    },
+    "fn_modular": {
+      "kind": "micro",
+      "elapsed_ns": 38645689,
+      "maxrss_kb": 5284,
       "tolerance": 0.3
     },
     "fn_scratch_work": {

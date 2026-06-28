@@ -1,0 +1,36 @@
+// fn_modular — modular "helper calls helper" overhead.
+//
+// `outer(x)` calls `inner(x)` and does arithmetic on the result —
+// the shape of clean, factored code where small functions compose.
+// Called 10M times. This is the bench for "is factoring a hot path
+// into small helpers free?"
+//
+// History: before the 2026-06-28 interprocedural non-allocating
+// propagation, calling ANY function marked the caller as
+// possibly-allocating, so `outer` paid a per-call scratch-arena
+// malloc/free even though `inner` allocates nothing — ~21 ns/call.
+// The call-graph fixpoint now proves `inner` (and hence `outer`)
+// allocate nothing, so both elide the scratch and the chain runs at
+// ~4 ns.
+fn inner(x: Int) -> Int {
+    return x + 1;
+}
+
+fn outer(x: Int) -> Int {
+    return inner(x) * 3;
+}
+
+fn main() {
+    let iters = 10000000;
+    let t0 = std::time::monotonic();
+    let mut i = 0;
+    let mut acc = 0;
+    while i < iters {
+        acc = outer(i);
+        i = i + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("iters="); println(iters);
+    print("acc="); println(acc);
+    print("elapsed_ns="); println(t1 - t0);
+}

@@ -49,7 +49,8 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
 | `loop_overhead`             | 11.57 ms | 19.21 ms (1.66×) | 20.33 ms (1.76×) | 3.36 s (290×) |
-| `fn_call`                   | 16.46 ms | 7.69 ms (0.467×) | 3.24 ms (0.197×) | 356.73 ms (21.7×) |
+| `fn_call`                   | 19.14 ms | 7.72 ms (0.403×) | 4.41 ms (0.230×) | 517.65 ms (27.0×) |
+| `fn_modular`                | 38.65 ms | 15.41 ms (0.399×) | 4.04 ms (0.105×) | 630.74 ms (16.3×) |
 | `locus_instantiation`       | 2.41 ms | 152.66 µs (0.0633×) | 1.02 ms (0.422×) | 12.67 ms (5.25×) |
 | `bus_dispatch`              | 2.82 ms | 46.21 µs (0.0164×) | 308.33 µs (0.109×) | 1.09 ms (0.384×) |
 | `bus_dispatch_heap_payload` | 2.03 ms | — | — | — |
@@ -344,9 +345,25 @@ arena lifecycle gets no chance to amortize against work it would
 normally accompany.
 
 - **`loop_overhead`** — empty while loop. No arena work at all.
-- **`fn_call`** — `fn noop(x) -> Int { return x; }` called 10M
-  times. m49's per-call subregion runs against a body that
-  doesn't allocate, so the boundary cost is paid for nothing.
+- **`fn_call`** — `fn step(x) -> Int { return x * 2 + 1; }` called
+  10M times: free-fn call overhead for a minimal *real* body. A free
+  fn that allocates nothing skips its per-call scratch arena
+  (`//go:noinline` on the Go sibling keeps it a fair real-call
+  comparison). Before the 2026-06-28 allocation-classification work
+  this body's `+` was treated as possibly-String-concat, so the call
+  paid a scratch malloc/free (~10 ns/call); the type-aware `Add`
+  classification recognizes `Int + Int` as arithmetic and now it runs
+  at ~2 ns. (The earlier `return x;` body measured nothing — a bare
+  identifier was always elided.)
+- **`fn_modular`** — `outer(x) { return inner(x) * 3; }` over
+  `inner(x) { return x + 1; }`, 10M times: the "is factoring a hot
+  path into composed helpers free?" bench. Before the interprocedural
+  non-allocating propagation (2026-06-28), *calling any function*
+  marked the caller possibly-allocating, so `outer` paid a scratch
+  malloc per call even though `inner` allocates nothing (~21 ns/call);
+  the call-graph fixpoint now proves the whole chain non-allocating
+  and it runs at ~4 ns. On factored code Hale went from ~13× Go's
+  (no-inline) call overhead to ~2.5×.
 - **`locus_instantiation`** — `Empty {}` 100k times,
   statement-position. Arena create + struct init + arena destroy
   with zero allocations in between.
@@ -466,6 +483,7 @@ not strict apples-to-apples.
 │   │   # Overhead microbenches (isolate substrate cost)
 │   ├── loop_overhead.{ap,go,js,py}
 │   ├── fn_call.{ap,go,js,py}
+│   ├── fn_modular.{ap,go,js,py}
 │   ├── locus_instantiation.{ap,go,js,py}
 │   ├── bus_dispatch.{ap,go,js,py}
 │   ├── form_vec_push.{ap,go,js,py}
