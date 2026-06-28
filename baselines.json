@@ -68,10 +68,10 @@
     },
     "form_hashmap_get": {
       "kind": "micro",
-      "elapsed_ns": 4956499,
-      "maxrss_kb": 49140,
-      "tolerance": 0.5,
-      "note": "Re-baselined 2026-06-25 (15-iter median): 8.87 -> 4.96 ms, a real improvement since the 05-25/06-11 baselines (faster hashmap lookup path). No bus constructs, so independent of GH #125; cause not pinned to a specific commit. maxrss ~flat. 2026-06-28: HIGH-VARIANCE bench \u2014 a 500k-entry (~49 MB) hashmap makes the lookup loop dominated by cache/TLB + CPU-boost state; observed 4.4-13 ms run-to-run (a 3x spread), and core-pinning can DOUBLE it. The 4.96 ms baseline is the cool-machine median (min today 4.41 ms still beats it); the lookup path is untouched since, so elevated medians under sustained load are environmental (X3D thermal), not a regression. Tolerance widened 0.3 -> 0.5 to stop spurious flags; bench on a cool, idle machine for a clean reading."
+      "elapsed_ns": 1043572,
+      "maxrss_kb": 16148,
+      "tolerance": 0.4,
+      "note": "Re-baselined 2026-06-28: iters unified to 150k to MATCH the .go/.js/.py variants (was 500k here only \u2014 a 3.3x workload mismatch that ALSO dragged the bench into a ~49MB DRAM/cache-bound regime, the source of its old high variance). At 150k the ~14MB table keeps the loop measuring hash + probe cost. With native target-cpu + O3, Hale lookup is ~1.04ms vs Go's 1.10ms (Hale ~1.05x FASTER) \u2014 the old '4.8x behind Go' was the workload+regime mismatch, not a real gap."
     },
     "form_hashmap_set": {
       "kind": "micro",

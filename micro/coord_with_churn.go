@@ -2,7 +2,7 @@
 // Parent struct with a method that constructs + discards K
 // Worker values, invoking onAccept per child. Closest analog
 // to Hale's chunked-class parent with accept(w: Worker).
-// Note: K=20 because the Hale bench's accept() ceiling
+// Note: K=2000 because the Hale bench's accept() ceiling
 // caps at ~25 under v1 codegen; raising K here would unbalance
 // the ratio.
 package main
@@ -32,7 +32,7 @@ func (c *Coord) run() {
 }
 
 func main() {
-	k := 20
+	k := 2000
 	t0 := time.Now()
 	c := &Coord{batch: k}
 	c.run()

@@ -52,13 +52,13 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 | `fn_call`                   | 19.14 ms | 7.72 ms (0.403×) | 4.41 ms (0.230×) | 517.65 ms (27.0×) |
 | `fn_modular`                | 38.65 ms | 15.41 ms (0.399×) | 4.04 ms (0.105×) | 630.74 ms (16.3×) |
 | `locus_instantiation`       | 1.25 ms | 152.66 µs (0.122×) | 1.02 ms (0.816×) | 12.67 ms (10.1×) |
-| `bus_dispatch`              | 1.79 ms | 46.21 µs (0.0258×) | 308.33 µs (0.172×) | 1.09 ms (0.609×) |
+| `bus_dispatch`              | 1.89 ms | 460.12 µs (0.243×) | 1.36 ms (0.722×) | 11.19 ms (5.92×) |
 | `bus_dispatch_heap_payload` | 1.51 ms | — | — | — |
 | `bus_publish_shm_ring`      | 1.34 ms | — | — | — |
 | `form_vec_push`             | 572.86 µs | 2.76 ms (4.83×) | 3.43 ms (5.99×) | 13.31 ms (23.2×) |
 | `form_vec_get`              | 14.94 µs | 38.84 µs (2.60×) | 672.27 µs (45.0×) | 8.17 ms (547×) |
 | `form_hashmap_set`          | 43.24 ms | 47.80 ms (1.11×) | 81.57 ms (1.89×) | 262.14 ms (6.06×) |
-| `form_hashmap_get`          | 5.23 ms | 1.09 ms (0.208×) | 2.47 ms (0.473×) | 10.51 ms (2.01×) |
+| `form_hashmap_get`          | 1.04 ms | 1.10 ms (1.05×) | 2.72 ms (2.61×) | 9.28 ms (8.89×) |
 | `json_parse`                | 57.97 ms | 150.02 ms (2.59×) | 51.04 ms (0.88×) | 213.97 ms (3.69×) |
 
 `json_parse` is 200k parses of a 7-field market-data quote
@@ -74,7 +74,7 @@ string-fast-path + leaf-primitive inlining work.
 |---|---:|---:|---:|---:|
 | `vec_amortized`     | 959.28 µs | 1.25 ms (1.3×) | 2.93 ms (3.05×) | 13.23 ms (13.8×) |
 | `fn_scratch_work`   | 420.75 µs | 449.95 µs (1.07×) | 952.79 µs (2.26×) | 2.61 ms (6.2×) |
-| `coord_with_churn`  | 42.96 µs | 0.16 µs (0.0037×) | 32.18 µs (0.749×) | 4.06 µs (0.0944×) |
+| `coord_with_churn`  | 42.76 µs | 2.38 µs (0.0556×) | 112.73 µs (2.64×) | 136.47 µs (3.19×) |
 
 ### Coordinated-workload microbenches
 
@@ -378,8 +378,10 @@ normally accompany.
 - **`locus_instantiation`** — `Empty {}` 100k times,
   statement-position. Arena create + struct init + arena destroy
   with zero allocations in between.
-- **`bus_dispatch`** — 10k typed messages through the bus. The
-  per-message payload memcpy + queue enqueue is the design (per
+- **`bus_dispatch`** — 100k typed messages through the bus (N
+  matched across all language variants; raised from 10k for
+  lower run-to-run variance). The per-message payload memcpy +
+  queue enqueue is the design (per
   `memory.md` "pointers don't cross loci; values do") but the
   bench measures it isolated.
 - **`form_vec_push`** — 500k pushes only. Isolated growth path.
@@ -416,10 +418,11 @@ is paid once across N units of work, not per unit.
 - **`vec_amortized`** — push N + fold N, single timed region.
 - **`fn_scratch_work`** — 100 fn calls × 1000-element local
   `@form(vec)` per call. The m49 subregion gets a real workout.
-- **`coord_with_churn`** — chunked-class parent accepting K
-  Worker children. Tests F.3 free-list reclamation + chunked
-  sub-region allocator. (K capped at 20 by v1 codegen's
-  accept() accumulation cliff at k≈25 — see comment in source.)
+- **`coord_with_churn`** — chunked-class parent accepting K=2000
+  Worker children (N matched across all language variants; the
+  old k≈25 accept() accumulation cliff was lifted in the
+  cliff-lift session). Tests F.3 free-list reclamation + chunked
+  sub-region allocator.
 
 These are where Hale's region model is supposed to win. The
 ratio against Go is the right signal — if amortized benches show

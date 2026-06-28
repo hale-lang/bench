@@ -1,5 +1,5 @@
 // JS equivalent of coord_with_churn.hl.
-// K=20 to match Hale's accept() ceiling.
+// K=2000 to match Hale's accept() ceiling.
 
 class Worker {
     constructor(n) { this.n = n; }
@@ -16,7 +16,7 @@ class Coord {
     }
 }
 
-const k = 20;
+const k = 2000;
 const t0 = process.hrtime.bigint();
 const c = new Coord(k);
 c.run();

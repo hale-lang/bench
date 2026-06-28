@@ -20,7 +20,7 @@ class Aggregator:
 agg = Aggregator()
 router = {"bench.tick": agg.on_tick}
 
-iters = 10_000
+iters = 100_000
 t0 = time.monotonic_ns()
 for i in range(iters):
     handler = router["bench.tick"]

@@ -24,7 +24,7 @@ func (a *Aggregator) onTick(t Tick) {
 }
 
 func main() {
-	iters := 10000
+	iters := 100000
 	agg := &Aggregator{}
 	router := map[string]func(Tick){
 		"bench.tick": agg.onTick,

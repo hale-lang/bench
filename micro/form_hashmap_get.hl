@@ -16,12 +16,13 @@ locus IntMap {
 }
 
 fn main() {
-    // Cliff reported lifted 2026-05-16 alongside the vec ones;
-    // ceiling not yet verified at the new level, so bumping
-    // conservatively. 500k stays well under the form_hashmap_set
-    // confirmed-clean mark of 1M while giving the set+get bench
-    // 3× more signal than the old cap.
-    let n = 500000;
+    // 150k — MATCHED across the .go/.js/.py variants so the
+    // cross-language ratio is apples-to-apples. (Was 500k here
+    // only, 3.3× the other langs — a workload mismatch, plus a
+    // ~49MB table that dragged the bench into a DRAM/cache-bound
+    // regime. At 150k the ~14MB table keeps the lookup measuring
+    // hash + probe cost, not memory bandwidth.)
+    let n = 150000;
     let m = IntMap { };
 
     // Populate outside the timed region.

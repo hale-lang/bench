@@ -13,7 +13,7 @@ const agg = new Aggregator();
 const router = new Map();
 router.set("bench.tick", agg.onTick.bind(agg));
 
-const iters = 10_000;
+const iters = 100_000;
 const t0 = process.hrtime.bigint();
 for (let i = 0; i < iters; i++) {
     const handler = router.get("bench.tick");

@@ -1,5 +1,5 @@
 """Python equivalent of coord_with_churn.hl.
-K=20 to match Hale's accept() ceiling.
+K=2000 to match Hale's accept() ceiling.
 """
 
 import time
@@ -20,7 +20,7 @@ class Coord:
             self.on_accept(w)
 
 
-k = 20
+k = 2000
 t0 = time.monotonic_ns()
 c = Coord(k)
 c.run()
