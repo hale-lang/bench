@@ -48,7 +48,7 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `loop_overhead`             | 11.57 ms | 19.21 ms (1.66×) | 20.33 ms (1.76×) | 3.36 s (290×) |
+| `loop_overhead`             | 1.59 ms | 19.70 ms (12.4×) | 21.03 ms (13.2×) | 3.67 s (2303×) |
 | `fn_call`                   | 19.14 ms | 7.72 ms (0.403×) | 4.41 ms (0.230×) | 517.65 ms (27.0×) |
 | `fn_modular`                | 38.65 ms | 15.41 ms (0.399×) | 4.04 ms (0.105×) | 630.74 ms (16.3×) |
 | `locus_instantiation`       | 1.25 ms | 152.66 µs (0.122×) | 1.02 ms (0.816×) | 12.67 ms (10.1×) |
@@ -72,8 +72,8 @@ string-fast-path + leaf-primitive inlining work.
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `vec_amortized`     | 959.28 µs | 1.25 ms (1.3×) | 2.93 ms (3.05×) | 13.23 ms (13.8×) |
-| `fn_scratch_work`   | 420.75 µs | 449.95 µs (1.07×) | 952.79 µs (2.26×) | 2.61 ms (6.2×) |
+| `vec_amortized`     | 342.0 µs | 1.27 ms (3.71×) | 3.13 ms (9.15×) | 14.43 ms (42.2×) |
+| `fn_scratch_work`   | 59.5 µs | 461.42 µs (7.75×) | 1.05 ms (17.6×) | 2.67 ms (44.8×) |
 | `coord_with_churn`  | 42.76 µs | 2.38 µs (0.0556×) | 112.73 µs (2.64×) | 136.47 µs (3.19×) |
 
 ### Coordinated-workload microbenches
@@ -355,7 +355,11 @@ runs alone. These deliberately measure Hale's worst case: the
 arena lifecycle gets no chance to amortize against work it would
 normally accompany.
 
-- **`loop_overhead`** — empty while loop. No arena work at all.
+- **`loop_overhead`** — tight `acc ^= i` reduction over 100M iters
+  (pid-seeded + printed so it can't fold to a constant). Under the
+  native-CPU + O3 defaults LLVM autovectorizes it to AVX-512, so it
+  now measures vectorized-reduction throughput (~12× vs Go's scalar
+  loop), not scalar loop overhead. No arena work.
 - **`fn_call`** — `fn step(x) -> Int { return x * 2 + 1; }` called
   10M times: free-fn call overhead for a minimal *real* body. A free
   fn that allocates nothing skips its per-call scratch arena

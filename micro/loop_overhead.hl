@@ -5,17 +5,20 @@
 // state and constant-fold the entire loop away (the compiler
 // even handles iters = 100M + pid() correctly via cmovg).
 //
-// To keep the bench measuring something, the loop body now XORs
-// the counter into an accumulator seeded with pid. XOR is:
-//   - Bounded (no overflow concerns in any language)
-//   - Apparently not folded by the v1 compiler despite XOR of
-//     consecutive integers having a closed form
-//   - Cheap (one cycle on any modern ISA)
+// To keep the bench measuring something, the loop body XORs the
+// counter into a pid-seeded accumulator that's printed (escapes,
+// so it can't be folded to a constant).
 //
-// Measures: loop-construct + integer-XOR throughput. Still
-// useful as a "what's the cost of a tight idiomatic loop"
-// baseline; not "pure loop overhead" anymore (which appears
-// to be zero in v1+ codegen — a real compiler win).
+// What it measures now (2026-06-28): with the native-CPU + O3
+// codegen defaults, LLVM AUTOVECTORIZES this XOR reduction to
+// AVX-512 — 100M iters in ~1.6 ms (~0.016 ns/iter, far below one
+// scalar cycle/iter). So this is no longer "scalar loop overhead"
+// but vectorized-reduction throughput, and the large cross-language
+// ratio (~12× vs Go, ~13× vs Node) reflects that Hale's backend
+// vectorizes this loop while Go's / V8's do not — a real
+// autovectorization win on reducible loops, not a loop-construct
+// measurement. (A future variant could add a loop-carried
+// dependence to force scalar execution if pure overhead is wanted.)
 
 fn main() {
     let iters = 100000000 + std::process::pid();

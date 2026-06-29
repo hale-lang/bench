@@ -62,9 +62,10 @@
     },
     "fn_scratch_work": {
       "kind": "micro",
-      "elapsed_ns": 404015,
-      "maxrss_kb": 4992,
-      "tolerance": 0.3
+      "elapsed_ns": 59501,
+      "maxrss_kb": 5312,
+      "tolerance": 0.35,
+      "note": "Re-baselined 2026-06-28: 404 us -> 59.5 us (~7x). The non-allocating-fn scratch elision + native-CPU/O3 removed the per-call subregion overhead this bench targets. Hale now ~7.8x faster than Go (was recorded ~1.07x, near-parity). Small bench (~60us) -> tolerance 0.35."
     },
     "form_hashmap_get": {
       "kind": "micro",
@@ -102,9 +103,10 @@
     },
     "loop_overhead": {
       "kind": "micro",
-      "elapsed_ns": 12014895,
-      "maxrss_kb": 5140,
-      "tolerance": 0.3
+      "elapsed_ns": 1594944,
+      "maxrss_kb": 5348,
+      "tolerance": 0.3,
+      "note": "Re-baselined 2026-06-28: 12.0 -> 1.59 ms. The native-CPU + O3 codegen defaults autovectorize the XOR reduction to AVX-512 (~0.016 ns/iter, sub-scalar-cycle). This now measures vectorized-reduction throughput, not scalar loop overhead \u2014 Hale's backend vectorizes this loop while Go/V8 don't (~12x vs Go). See the bench source comment."
     },
     "pipeline_3stage": {
       "kind": "micro",
@@ -121,9 +123,10 @@
     },
     "vec_amortized": {
       "kind": "micro",
-      "elapsed_ns": 1079067,
-      "maxrss_kb": 6456,
-      "tolerance": 0.3
+      "elapsed_ns": 341990,
+      "maxrss_kb": 6760,
+      "tolerance": 0.3,
+      "note": "Re-baselined 2026-06-28: 1.08 ms -> 342 us. Push+fold over 200k; the vec.push/get inlines + native-CPU/O3 dropped it ~3x. Hale now ~3.7x faster than Go (was recorded ~1.3x)."
     },
     "stream_aggregator": {
       "kind": "app",
