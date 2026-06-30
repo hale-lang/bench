@@ -1,5 +1,8 @@
 # Hale benchmark suite
 
+> Current as of hale **v0.9.0** (lock-free bus + static dispatch
+> devirtualization landed; `baselines.json` carries `hale_version`).
+
 Performance harness for Hale, comparing against Go / Node / Python
 sibling implementations of the same workload shape. For the language
 itself, see [hale-lang/hale](https://github.com/hale-lang/hale).
@@ -34,7 +37,7 @@ Each invocation writes a timestamped JSON report under
 
 ## Cross-language comparative grid
 
-Latest snapshot: **Hale v0.8.3** (2026-06-25), AMD Ryzen 7
+Latest snapshot: **Hale v0.9.0** (2026-06-30), AMD Ryzen 7
 9800X3D / x86_64 / Linux 6.18.
 
 Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
@@ -52,7 +55,7 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 | `fn_call`                   | 19.14 ms | 7.72 ms (0.403×) | 4.41 ms (0.230×) | 517.65 ms (27.0×) |
 | `fn_modular`                | 38.65 ms | 15.41 ms (0.399×) | 4.04 ms (0.105×) | 630.74 ms (16.3×) |
 | `locus_instantiation`       | 1.25 ms | 152.66 µs (0.122×) | 1.02 ms (0.816×) | 12.67 ms (10.1×) |
-| `bus_dispatch`              | 1.89 ms | 460.12 µs (0.243×) | 1.36 ms (0.722×) | 11.19 ms (5.92×) |
+| `bus_dispatch`              | 196.4 µs | 470.6 µs (2.40×) | 1.29 ms (6.56×) | 11.28 ms (57.4×) |
 | `bus_dispatch_heap_payload` | 1.51 ms | — | — | — |
 | `bus_publish_shm_ring`      | 1.34 ms | — | — | — |
 | `form_vec_push`             | 572.86 µs | 2.76 ms (4.83×) | 3.43 ms (5.99×) | 13.31 ms (23.2×) |
@@ -81,13 +84,13 @@ string-fast-path + leaf-primitive inlining work.
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
 | `tree_fanout`      | 19.50 µs | 8.01 µs (0.411×) | 242.45 µs (12.4×) | 575.17 µs (29.5×) |
-| `pipeline_3stage`  | 3.89 ms | 214.93 µs (0.0552×) | 1.10 ms (0.281×) | 6.98 ms (1.79×) |
+| `pipeline_3stage`  | 1.57 ms | 217.0 µs (0.138×) | 1.21 ms (0.767×) | 7.28 ms (4.63×) |
 
 ### Cross-pool / cache microbenches (F.32)
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `bus_dispatch_cross_pool`     | 10.72 ms | 7.72 ms (0.720×) | 39.83 ms (3.72×) | 82.32 ms (7.68×) |
+| `bus_dispatch_cross_pool`     | 5.03 ms | 6.36 ms (1.26×) | 40.63 ms (8.07×) | 85.16 ms (16.9×) |
 | `form_hashmap_false_sharing`  | 15.91 ms | 9.95 ms (0.625×) | 84.88 ms (5.34×) | 36.20 ms (2.28×) |
 | `form_hashmap_walk_large`     | 1.20 ms | 381.18 µs (0.317×) | 729.95 µs (0.608×) | 7.62 ms (6.35×) |
 
@@ -146,11 +149,24 @@ cut the method-heavy benches again on top of the bounded-queue win:
 `locus_instantiation` 2.45 → 1.25 ms (`Empty {}`'s `birth()` is now
 scratch-free). Re-baselined.
 
+**Lock-free bus + static dispatch devirtualization (v0.9.0).** The pinned-locus
+mailbox and cooperative-pool queues became lock-free MPSC rings (genmc-verified),
+and statically-eligible local subjects skip the runtime dispatch entirely — a
+*quiet* same-thread handler is lowered to a direct synchronous call (differential-
+verified equal to the dynamic path). The bus stopped being the weak spot:
+`bus_dispatch` 1.79 → 0.196 ms (now **2.4× ahead** of Go, was ~4× behind),
+`bus_dispatch_cross_pool` 10.7 → 5.03 ms (**1.26× ahead**, was 1.6× behind),
+`stream_aggregator` 5.26 ms → 436 µs (~23× behind Go → **1.9×**),
+`pipeline_3stage` 3.89 → 1.57 ms. Footprint trade-off: the lock-free rings
+pre-allocate their cap (~4.3 MB per pinned mailbox / cooperative pool at the
+default 8192) instead of growing — down-tunable via `LOTUS_BUS_QUEUE_CAP`.
+Re-baselined; `baselines.json` carries `hale_version: 0.9.0`.
+
 ### App benches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `stream_aggregator`  | 5.26 ms | 229.21 µs (0.0436×) | 1.71 ms (0.326×) | 30.85 ms (5.87×) |
+| `stream_aggregator`  | 435.9 µs | 233.2 µs (0.535×) | 1.60 ms (3.66×) | 31.86 ms (73.1×) |
 
 ### Cross-process SHM delivery (`xproc/`)
 
