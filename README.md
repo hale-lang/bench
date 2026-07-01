@@ -634,21 +634,36 @@ silently skipped if its toolchain is missing.
 means Hale is 2× faster than the other language; **1.0** is
 parity.
 
-## Known constraint — accumulation ceiling
+## Known constraint — accumulation ceiling (LIFTED 2026-07-01)
 
-Several Hale substrate paths segfault under v1 codegen
-somewhere between 100k and 1M iterations of a tight loop. The
-microbench Hale iteration counts are tuned **below** those
-ceilings; comments inside each `.hl` document the threshold
-they hit. The sibling `.go/.js/.py` benches mirror the same
-iteration count so the ratio stays apples-to-apples.
+**Historical.** Several Hale substrate paths used to segfault
+under v1 codegen between 100k and 1M iterations of a tight
+loop — root cause was a statement-position locus lowering to a
+dynamic stack alloc per iteration (blew the 8 MB stack at
+~500k), fixed by the entry-block alloca hoist; the separate
+`accept()`-in-a-loop cliff at k≈25 fell in the 2026-05-16
+cliff-lift session. A 2026-07-01 sweep re-stressed every
+substrate shape on hale v0.9.2+: vec push+get to 100M, hashmap
+set+get to 20M, bus dispatch to 10M, cross-pool dispatch to
+10M, 3-stage pipeline to 5M, heap-payload dispatch to 10M,
+locus instantiation to 10M, accept-fanout to K=2M, and
+accept-churn to K=4M — **all clean**. Iteration counts in the
+`.hl` files are now set for cross-language workload parity, not
+to dodge a ceiling.
 
-The **`coord_with_churn`** bench hits the steepest cliff:
-parent's `accept(child)` in a loop fails at k≈25 regardless of
-projection class. Caps the bench at K=20, where the timing
-signal is small but measurable. When the substrate
-accumulation fix lands, raise iteration counts in all four
-language files together.
+The sweep did find (and fix, hale 2026-07-01) one real residual:
+under interest-based ownership (v0.9.2) an accept'd child's
+locus STRUCT was bump-allocated in the owner's arena and never
+recycled, so churn daemons grew ~sizeof(child struct) per child
+forever — OOM-shaped, not segfault-shaped. The child-struct
+free-list now restores F.3's O(peak-alive) contract for flow
+children (measured: flat 5.5 MB at K=4M, was 443 MB). Note the
+semantics: a child is only reclaimed mid-life if its parent
+declares `release(c: Child)` (flow) or it `terminate;`s —
+without one of those an accept'd child is a RESIDENT and
+accumulates by design until the parent dissolves
+(`coord_with_churn` declares `release` for exactly this
+reason).
 
 ## Future work
 

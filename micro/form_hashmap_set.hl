@@ -22,9 +22,9 @@ locus IntMap {
 
 fn main() {
     // 1M chosen as the per-bench workload size: scales linearly
-    // here (no accumulation cliff observed up to 2M during smoke
-    // testing). The set() synthesized method doesn't hit the
-    // per-call subregion path that caps form_vec_push at 500k.
+    // (verified to 20M set+get in the 2026-07-01 ceiling sweep).
+    // (Stale note removed: form_vec_push's 500k is cross-language
+    // workload matching, not a cap — vec verified to 100M.)
     let n = 1000000;
     let m = IntMap { };
     let t0 = std::time::monotonic();

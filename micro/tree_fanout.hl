@@ -58,9 +58,11 @@ locus Coordinator : projection chunked {
 }
 
 fn main() {
-    // K=20 chosen because accept() in a loop hits the v1 codegen
-    // accumulation cliff at k≈25 (see coord_with_churn.hl). M=2000
-    // per worker is the per-child work amortizing the cliff cost.
+    // K=20 × M=2000 — MATCHED across all language variants for
+    // apples-to-apples ratios. (The old "accumulation cliff at
+    // k≈25" this count was originally dodging is long gone —
+    // verified clean to K=2,000,000 on 2026-07-01. Raising K here
+    // means raising it in the .go/.js/.py siblings together.)
     let k = 20;
     let m = 2000;
     let t0 = std::time::monotonic();
