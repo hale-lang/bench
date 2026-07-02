@@ -1,154 +1,137 @@
 {
-  "hale_version": "0.9.0",
-  "updated_at": "2026-06-30T00:00:00Z",
+  "updated_at": "2026-07-02T15:21:56Z",
   "benches": {
-    "bus_dispatch": {
-      "kind": "micro",
-      "elapsed_ns": 196407,
-      "maxrss_kb": 5348,
-      "tolerance": 0.3,
-      "note": "Re-baselined for hale v0.9.0: the lock-free bus rings + static dispatch devirtualization. Re-baselined 2026-06-11 (GH #125): the cooperative bus queue is now bounded (default 8192-cell cap). This bench floods the queue; bounding it cut maxrss 57256->9564 KB AND elapsed 8.74->3.03 ms \u2014 the "
-    },
     "bus_dispatch_cross_pool": {
       "kind": "micro",
-      "elapsed_ns": 5033933,
-      "maxrss_kb": 10048,
-      "tolerance": 0.4,
-      "note": "Re-baselined for hale v0.9.0: the lock-free bus rings + static dispatch devirtualization. F.32-1 baseline (2026-05-25). Cross-pool bus dispatch from main to io pool, 100k iters. Timed region NOW INCLUDES consumer-side drain (poll-wait on self.sub.count until iters) \u2014 F.32-4-prefetch's cont"
-    },
-    "form_hashmap_false_sharing": {
-      "kind": "micro",
-      "elapsed_ns": 16806414,
-      "maxrss_kb": 41476,
-      "tolerance": 0.4,
-      "note": "F.32-1\u03b3-v1 baseline (2026-05-25). Two-pool concurrent writers into a shared @form(hashmap, sync = lockfree, cap = 300000). 100k inserts per writer = 200k total. \u03b3-v1 uses cell-level CAS (3-state occupancy) with NO rwlock or mutex \u2014 pure atomic ops on slot[0] + memcpy. On this 2-core / cheap-payload bench: \u03b3-v1 is ~1.39x faster than \u03b1 (serialized) and ~2.54x faster than \u03b22-v2 (striped+rwlock); closes the gap with Go's sync.Mutex map from 1.66x to 1.18x. \u03b3-v1 is fixed-cap (no grow) and remove-less \u2014 author sized cap to 1.5x expected entries to keep linear-probe latency bounded. | Re-baselined 2026-06-11: pre-existing drift vs the 05-25 baseline (confirmed ~16.8M on the pre-#125 bus-queue-change binary \u2014 this bench has no bus constructs, so the bus-queue change is not on its code path). 2-core false-sharing variance; correctness-driven drift from changes since 05-25, not a perf bug and not from #125."
-    },
-    "form_hashmap_walk_large": {
-      "kind": "micro",
-      "elapsed_ns": 1311232,
-      "maxrss_kb": 16312,
-      "tolerance": 0.3,
-      "note": "Re-baselined 2026-06-25 (15-iter median): key_at/entry_at are now O(1) dense-indexed access, not the O(N) linear scan the prior note assumed \u2014 the full 100k walk dropped 6911 ms -> 1.31 ms (~5700x). Verified correct (len=100000, sum=14999850000). The earlier 'O(N^2) by design / slow' framing is obsolete; this now measures O(N) iteration throughput on a working set past L1/L2. Prior value was last measured 2026-05-24."
+      "elapsed_ns": 4908192,
+      "maxrss_kb": 9400,
+      "tolerance": 0.4
     },
     "bus_dispatch_heap_payload": {
       "kind": "micro",
-      "elapsed_ns": 1512366,
-      "maxrss_kb": 10112,
-      "tolerance": 0.3,
-      "note": "Re-baselined 2026-06-25 (15-iter median): 4.84 -> 2.08 ms, maxrss 31456 -> 10112 KB \u2014 the GH #125 bounded bus queue (8192-cell cap), same signature as bus_dispatch."
+      "elapsed_ns": 1532406,
+      "maxrss_kb": 9288,
+      "tolerance": 0.3
+    },
+    "bus_dispatch": {
+      "kind": "micro",
+      "elapsed_ns": 173405,
+      "maxrss_kb": 4556,
+      "tolerance": 0.3
     },
     "bus_publish_shm_ring": {
       "kind": "micro",
-      "elapsed_ns": 1379558,
-      "maxrss_kb": 5124,
+      "elapsed_ns": 1349555,
+      "maxrss_kb": 4612,
       "tolerance": 0.3
     },
     "coord_with_churn": {
       "kind": "micro",
-      "elapsed_ns": 48030,
-      "maxrss_kb": 5456,
+      "elapsed_ns": 29455,
+      "maxrss_kb": 4732,
       "tolerance": 0.3
     },
     "fn_call": {
       "kind": "micro",
-      "elapsed_ns": 19138505,
-      "maxrss_kb": 5544,
+      "elapsed_ns": 9056681,
+      "maxrss_kb": 4672,
       "tolerance": 0.3
     },
     "fn_modular": {
       "kind": "micro",
-      "elapsed_ns": 38645689,
-      "maxrss_kb": 5284,
+      "elapsed_ns": 18435947,
+      "maxrss_kb": 4672,
       "tolerance": 0.3
     },
     "fn_scratch_work": {
       "kind": "micro",
-      "elapsed_ns": 59501,
-      "maxrss_kb": 5312,
-      "tolerance": 0.35,
-      "note": "Re-baselined 2026-06-28: 404 us -> 59.5 us (~7x). The non-allocating-fn scratch elision + native-CPU/O3 removed the per-call subregion overhead this bench targets. Hale now ~7.8x faster than Go (was recorded ~1.07x, near-parity). Small bench (~60us) -> tolerance 0.35."
+      "elapsed_ns": 55864,
+      "maxrss_kb": 4608,
+      "tolerance": 0.35
+    },
+    "form_chunk_hint_multi_locus": {
+      "kind": "micro",
+      "elapsed_ns": 200787392,
+      "maxrss_kb": 9436,
+      "tolerance": 0.3
+    },
+    "form_hashmap_false_sharing": {
+      "kind": "micro",
+      "elapsed_ns": 16256210,
+      "maxrss_kb": 45160,
+      "tolerance": 0.4
     },
     "form_hashmap_get": {
       "kind": "micro",
-      "elapsed_ns": 1043572,
-      "maxrss_kb": 16148,
-      "tolerance": 0.4,
-      "note": "Re-baselined 2026-06-28: iters unified to 150k to MATCH the .go/.js/.py variants (was 500k here only \u2014 a 3.3x workload mismatch that ALSO dragged the bench into a ~49MB DRAM/cache-bound regime, the source of its old high variance). At 150k the ~14MB table keeps the loop measuring hash + probe cost. With native target-cpu + O3, Hale lookup is ~1.04ms vs Go's 1.10ms (Hale ~1.05x FASTER) \u2014 the old '4.8x behind Go' was the workload+regime mismatch, not a real gap."
+      "elapsed_ns": 1035346,
+      "maxrss_kb": 15484,
+      "tolerance": 0.4
     },
     "form_hashmap_set": {
       "kind": "micro",
-      "elapsed_ns": 48356203,
-      "maxrss_kb": 92928,
+      "elapsed_ns": 42260684,
+      "maxrss_kb": 92428,
+      "tolerance": 0.3
+    },
+    "form_hashmap_walk_large": {
+      "kind": "micro",
+      "elapsed_ns": 297116,
+      "maxrss_kb": 15440,
       "tolerance": 0.3
     },
     "form_vec_get": {
       "kind": "micro",
-      "elapsed_ns": 14938,
-      "maxrss_kb": 6800,
-      "tolerance": 0.5,
-      "note": "Re-baselined 2026-06-28: iters unified to 200k to MATCH the .go/.js/.py variants (was 5M here only \u2014 a 25x workload mismatch that made the old cross-language ratio meaningless). At 200k the ~1.6MB working set is L2/L3-resident, isolating the per-element read path. With the compiler's bounds-check elimination (for j in 0..v.len() drops the per-read check) plus native target-cpu + O3 defaults, Hale reads at ~14.9us vs Go's bounds-checked 38.8us (~2.6x FASTER than Go). Small-N bench: median jitters ~11-22us run-to-run, hence tolerance 0.5."
+      "elapsed_ns": 11191,
+      "maxrss_kb": 6076,
+      "tolerance": 0.5
     },
     "form_vec_push": {
       "kind": "micro",
-      "elapsed_ns": 572855,
-      "maxrss_kb": 9080,
-      "tolerance": 0.35,
-      "note": "Re-baselined 2026-06-28: iters unified to 500k to MATCH the .go/.js/.py variants (was 10M here only \u2014 a 20x workload mismatch). 500k pushes through the doubling-grow path ~17 times. Hale 573us vs Go 2.76ms (~4.8x FASTER per push). The earlier 'push is 11x slower than Go' was the workload-size artifact, not a real gap."
+      "elapsed_ns": 695411,
+      "maxrss_kb": 8388,
+      "tolerance": 0.35
+    },
+    "json_parse": {
+      "kind": "micro",
+      "elapsed_ns": 61326069,
+      "maxrss_kb": 29636,
+      "tolerance": 0.3
     },
     "locus_instantiation": {
       "kind": "micro",
-      "elapsed_ns": 1246789,
-      "maxrss_kb": 5248,
-      "tolerance": 0.3,
-      "note": "Re-baselined 2026-05-29. The per-arena subregion_lock correctness fix (2026-05-26, cross-pool freelist race) raised this ~91% (1.79->3.94ms). hale 856dc7d's single-thread fast-path recovered most of it (->~2.43ms); the residual is the per-arena mutex init, removable only by a lock-free subregion freelist (deferred follow-up). Measured on the dev box; the prior 1.785ms baseline was faster hardware (pre-mutex control here was ~1.99ms)."
+      "elapsed_ns": 1328044,
+      "maxrss_kb": 4672,
+      "tolerance": 0.3
     },
     "loop_overhead": {
       "kind": "micro",
-      "elapsed_ns": 1594944,
-      "maxrss_kb": 5348,
-      "tolerance": 0.3,
-      "note": "Re-baselined 2026-06-28: 12.0 -> 1.59 ms. The native-CPU + O3 codegen defaults autovectorize the XOR reduction to AVX-512 (~0.016 ns/iter, sub-scalar-cycle). This now measures vectorized-reduction throughput, not scalar loop overhead \u2014 Hale's backend vectorizes this loop while Go/V8 don't (~12x vs Go). See the bench source comment."
+      "elapsed_ns": 1837067,
+      "maxrss_kb": 4644,
+      "tolerance": 0.3
     },
     "pipeline_3stage": {
       "kind": "micro",
-      "elapsed_ns": 1572310,
-      "maxrss_kb": 9656,
-      "tolerance": 0.3,
-      "note": "Re-baselined for hale v0.9.0: the lock-free bus rings + static dispatch devirtualization. Re-baselined 2026-06-25 (15-iter median): 7.52 -> 3.81 ms, maxrss 39124 -> 9712 KB \u2014 a 3-stage bus pipeline; the GH #125 bounded bus queue is on its hot path."
+      "elapsed_ns": 1760724,
+      "maxrss_kb": 8892,
+      "tolerance": 0.3
     },
     "tree_fanout": {
       "kind": "micro",
-      "elapsed_ns": 23665,
-      "maxrss_kb": 5136,
+      "elapsed_ns": 23634,
+      "maxrss_kb": 4760,
       "tolerance": 0.3
     },
     "vec_amortized": {
       "kind": "micro",
-      "elapsed_ns": 341990,
-      "maxrss_kb": 6760,
-      "tolerance": 0.3,
-      "note": "Re-baselined 2026-06-28: 1.08 ms -> 342 us. Push+fold over 200k; the vec.push/get inlines + native-CPU/O3 dropped it ~3x. Hale now ~3.7x faster than Go (was recorded ~1.3x)."
+      "elapsed_ns": 326842,
+      "maxrss_kb": 6080,
+      "tolerance": 0.3
     },
     "stream_aggregator": {
       "kind": "app",
-      "elapsed_ns": 435916,
-      "maxrss_kb": 5356,
-      "tolerance": 0.3,
-      "note": "Re-baselined for hale v0.9.0: the lock-free bus rings + static dispatch devirtualization. Re-baselined 2026-06-25 (15-iter median): 18.11 -> 5.26 ms and maxrss 109584 -> 9732 KB. The bounded cooperative bus queue (GH #125, default 8192-cell cap) replaced the unbounded backlog \u2014 same cache-"
-    },
-    "json_parse": {
-      "kind": "micro",
-      "elapsed_ns": 58550425,
-      "maxrss_kb": 30340,
-      "tolerance": 0.3,
-      "note": "JSON parse throughput: 200k parses of a 7-field market-data quote via the inlined Type::from_json. ~1.15x behind V8 JSON.parse, beats Go encoding/json ~2.4x and Python json.loads ~3.5x. Baselined 2026-06-09 after inline-parser + string-fast-path + byte_at/range_eq leaf-primitive inlining (was ~291ms via the cursor)."
-    },
-    "form_chunk_hint_multi_locus": {
-      "kind": "micro",
-      "elapsed_ns": 202724414,
-      "maxrss_kb": 13544,
-      "tolerance": 0.3,
-      "note": "Baselined 2026-06-25 (15-iter median) \u2014 previously untracked (a .hl with no baseline entry, so it gated nothing). @form chunk-hint across multiple loci; ~203 ms."
+      "elapsed_ns": 408584,
+      "maxrss_kb": 4584,
+      "tolerance": 0.3
     }
   }
 }

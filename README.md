@@ -676,30 +676,33 @@ The ports mirror the `.go` siblings' workload shapes exactly
 `#[inline(never)]` where the Go used `//go:noinline`); headers
 document per-file caveats.
 
-First run (2026-07-02, 9800X3D, median of 5). Ratio = lang/hale;
+Second run (2026-07-02 PM, same host, after the fn-call protocol
+shave, the @form iteration surface, and dead-stdlib DCE landed —
+fn_call 0.40 → 0.80, fn_modular 0.40 → 0.88, walk_large 0.07 →
+0.30 vs Rust and 1.92× vs C). Median of 5. Ratio = lang/hale;
 **> 1 means Hale is faster**:
 
 | bench | hale ns | c/hale | rust/hale |
 |---|---|---|---|
-| bus_dispatch | 173,304 | **1.90** | **5.22** |
-| bus_dispatch_cross_pool | 4,878,587 | **1.39** | 0.75 |
-| form_hashmap_set | 43,810,950 | **1.34** | 0.81 |
-| form_hashmap_false_sharing | 16,821,940 | **1.30** | 0.91 |
-| form_hashmap_get | 1,017,494 | **1.07** | **1.25** |
-| loop_overhead | 1,805,027 | **1.06** | 0.97 |
-| form_vec_get | 11,872 | 0.95 | 0.96 |
-| stream_aggregator | 423,442 | 0.90 | 0.91 |
-| vec_amortized | 322,513 | 0.85 | 0.85 |
-| form_vec_push | 712,894 | 0.79 | 0.85 |
-| fn_scratch_work | 58,540 | 0.70 | 0.71 |
-| locus_instantiation | 1,326,252 | 0.35 | 0.51 |
-| fn_call | 19,279,868 | 0.40 | 0.40 |
-| fn_modular | 38,744,902 | 0.40 | 0.40 |
-| coord_with_churn | 36,368 | 0.39 | 0.31 |
-| form_hashmap_walk_large | 1,219,431 | 0.47 | 0.07 |
-| bus_dispatch_heap_payload | 1,585,035 | 0.31 | 0.71 |
-| json_parse | 61,608,495 | 0.10 | 0.39 |
-| pipeline_3stage | 1,647,592 | 0.09 | 0.17 |
+| form_hashmap_walk_large | 301,093 | **1.92** | 0.30 |
+| bus_dispatch | 173,334 | **1.88** | **4.53** |
+| bus_dispatch_cross_pool | 4,963,635 | **1.26** | 0.72 |
+| form_hashmap_set | 43,291,062 | **1.40** | 0.82 |
+| form_hashmap_false_sharing | 16,953,313 | **1.34** | 0.91 |
+| form_hashmap_get | 1,023,635 | **1.07** | **1.23** |
+| form_vec_get | 11,281 | **1.04** | 0.97 |
+| form_vec_push | 680,112 | 0.93 | 0.97 |
+| stream_aggregator | 408,334 | 0.94 | 0.95 |
+| vec_amortized | 332,782 | 0.81 | 0.82 |
+| loop_overhead | 1,818,352 | 0.90 | **1.12** |
+| fn_modular | 17,654,675 | 0.88 | 0.87 |
+| fn_call | 9,587,696 | 0.80 | 0.80 |
+| fn_scratch_work | 55,644 | 0.74 | 0.80 |
+| coord_with_churn | 28,794 | 0.49 | 0.39 |
+| locus_instantiation | 1,322,073 | 0.35 | 0.52 |
+| bus_dispatch_heap_payload | 1,510,496 | 0.32 | 0.74 |
+| json_parse | 61,047,909 | 0.10 | 0.39 |
+| pipeline_3stage | 1,758,139 | 0.08 | 0.16 |
 | tree_fanout | — | n/c | n/c |
 | form_chunk_hint_multi_locus | — | n/c | n/c |
 
