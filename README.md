@@ -665,15 +665,77 @@ accumulates by design until the parent dissolves
 (`coord_with_churn` declares `release` for exactly this
 reason).
 
+## Rust + C comparators (2026-07-01)
+
+Every micro/app bench now has `.c` and `.rs` siblings — the title
+comparison the suite existed to make. Build posture is
+toolchain-fair: `clang -O3 -march=native` and `rustc -O
+-C target-cpu=native` against Hale's default O3 + host tuning.
+The ports mirror the `.go` siblings' workload shapes exactly
+(same counts, same timed regions, `__attribute__((noinline))` /
+`#[inline(never)]` where the Go used `//go:noinline`); headers
+document per-file caveats.
+
+First run (2026-07-02, 9800X3D, median of 5). Ratio = lang/hale;
+**> 1 means Hale is faster**:
+
+| bench | hale ns | c/hale | rust/hale |
+|---|---|---|---|
+| bus_dispatch | 173,304 | **1.90** | **5.22** |
+| bus_dispatch_cross_pool | 4,878,587 | **1.39** | 0.75 |
+| form_hashmap_set | 43,810,950 | **1.34** | 0.81 |
+| form_hashmap_false_sharing | 16,821,940 | **1.30** | 0.91 |
+| form_hashmap_get | 1,017,494 | **1.07** | **1.25** |
+| loop_overhead | 1,805,027 | **1.06** | 0.97 |
+| form_vec_get | 11,872 | 0.95 | 0.96 |
+| stream_aggregator | 423,442 | 0.90 | 0.91 |
+| vec_amortized | 322,513 | 0.85 | 0.85 |
+| form_vec_push | 712,894 | 0.79 | 0.85 |
+| fn_scratch_work | 58,540 | 0.70 | 0.71 |
+| locus_instantiation | 1,326,252 | 0.35 | 0.51 |
+| fn_call | 19,279,868 | 0.40 | 0.40 |
+| fn_modular | 38,744,902 | 0.40 | 0.40 |
+| coord_with_churn | 36,368 | 0.39 | 0.31 |
+| form_hashmap_walk_large | 1,219,431 | 0.47 | 0.07 |
+| bus_dispatch_heap_payload | 1,585,035 | 0.31 | 0.71 |
+| json_parse | 61,608,495 | 0.10 | 0.39 |
+| pipeline_3stage | 1,647,592 | 0.09 | 0.17 |
+| tree_fanout | — | n/c | n/c |
+| form_chunk_hint_multi_locus | — | n/c | n/c |
+
+Reading it honestly:
+
+- **Hale's substrate WINS against hand-written C** where the
+  design bet lives: subject-keyed dispatch (static-devirt bus vs
+  C's FNV-router + indirect call, 1.9×; vs Rust's boxed-closure
+  HashMap dispatch, 5.2×), hashmap writes (1.34× vs a hand-rolled
+  open-addressing C table), cross-thread posting (1.39× vs a
+  mutex+condvar ring), contended writes (1.30×).
+- **Parity band** (±15%): loops, vec reads/amortized cycle,
+  hashmap reads, the stream-aggregator app shape.
+- **The losses are the known per-op overheads**, now measured
+  against the real target: free-fn calls 2.5× behind (all three
+  compiled comparators agree at ~7.7 ms — the gap is Hale's
+  call protocol, not codegen), locus instantiation 2–3×,
+  accept-churn ~3×, pipeline hops 6–11× (C/Rust make direct
+  synchronous calls; Hale pays queue + payload-copy semantics —
+  extending static devirtualization across the hop chain is the
+  fix), hashmap ITERATION 13× behind Rust (`key_at`/`entry_at`
+  per-slot calls vs a native iterator — the deferred
+  `@form(hashmap)` iteration surface is the fix), and
+  schema-specialized parsing (C's hand-rolled extractor 10×).
+- **Non-comparable rows:** `tree_fanout` (LLVM folds the
+  triangular sum to closed form in the C/Rust ports) and
+  `form_chunk_hint_multi_locus` (the .hl/.rs elapsed includes a
+  200 ms drain sleep; the .c doesn't — coverage bench, not a
+  ratio signal).
+
 ## Future work
 
-- **C twins for FORM-3.** `spec/forms.md` commits `@form(vec)`
-  to within 10% of a hand-written C equivalent on push+get.
-  Land C sources in `c-twins/` and add a comparison column
-  to the runner's report.
-- **More comparative langs.** Erlang (BEAM) is the natural fourth
-  comparator since Hale's runtime model is BEAM-shaped. Rust
-  is a fifth for the "non-GC compiled" point of comparison.
+- **Erlang (BEAM)** is the natural next comparator since Hale's
+  runtime model is BEAM-shaped.
 - **`hale bench` CLI.** Per `spec/testing.md`, this surface is
   planned but not shipped. The shell harness here is the current
   stand-in.
+- **xproc C/Rust twins** for the cross-process SHM path (the
+  in-process suite above doesn't cover it).
