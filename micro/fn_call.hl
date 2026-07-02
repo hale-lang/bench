@@ -4,25 +4,39 @@
 // helper you'd actually factor out — called 10M times in a tight
 // loop to isolate per-call overhead.
 //
-// History: before the 2026-06-28 allocation-classification work a
-// free fn whose body did ANY `+` (or called another fn) was treated
-// as possibly-allocating and paid a per-call scratch-arena
-// malloc/free — this body cost ~10 ns/call. The type-aware `Add`
-// classification recognizes `Int + Int` as arithmetic, so the
-// scratch is elided and the call runs at ~2 ns. (The earlier
-// `return x;` body measured nothing: a bare identifier was always
-// elided, and the "every free fn opens a subregion" note was stale.)
+// The call goes through an OPAQUE function pointer (selected by
+// pid parity at startup between two same-shape fns) so the call is
+// real: the .go/.c/.rs siblings force a real call with noinline
+// attributes, and Hale has no noinline surface — after the
+// 2026-07-02 exit-drain elision made `step` a two-instruction pure
+// fn, LLVM inlined it and folded the whole loop. A compile-time-
+// unknown target pins a real call boundary; at run time the target
+// is loop-invariant, so the CPU predicts it perfectly — cost
+// parity with the comparators' direct noinline calls.
+//
+// History: 2026-06-28 allocation classification elided the
+// per-call scratch (~10 ns → ~2 ns); 2026-07-02 exit-drain elision
+// removed the remaining per-call `lotus_bus_queue_drain` (a
+// non-allocating body can't have published; fn exit is not a
+// spec-required yield point), taking the callee to C shape:
+// `lea; ret`.
 fn step(x: Int) -> Int {
     return x * 2 + 1;
 }
 
+fn step_odd(x: Int) -> Int {
+    return x * 2 + 3;
+}
+
 fn main() {
     let iters = 10000000;
+    let pid = std::process::pid();
+    let f: fn(Int) -> Int = if pid % 2 == 0 { step } else { step_odd };
     let t0 = std::time::monotonic();
     let mut i = 0;
     let mut acc = 0;
     while i < iters {
-        acc = step(i);
+        acc = f(i);
         i = i + 1;
     }
     let t1 = std::time::monotonic();

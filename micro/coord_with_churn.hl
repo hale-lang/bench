@@ -21,15 +21,28 @@
 // k=20000+ in the cliff-lift session (800× the previous ceiling)
 // after the alloca-hoist + arena-reclaim fixes. k=2000 chosen
 // as the new signal point — leaves headroom and stays well under
-// the new ceiling.
+// the new ceiling. Verified clean to k=4,000,000 on 2026-07-01.
+//
+// 2026-07-01: `release(w)` declared so Worker is a FLOW child.
+// Under interest-based ownership (hale v0.9.2) an accept'd child
+// with no `release` is a RESIDENT — it is not dissolved per
+// iteration at all (reclaim happens only at Coord's dissolve), so
+// the bench was no longer measuring the acquire/dissolve cycle it
+// documents, and each child's struct stayed pinned in Coord's
+// arena (O(K) growth). With `release` + the child-struct recycler
+// (hale 2026-07-01) the per-iteration cycle is: sub-region
+// acquire → child init → run → reclaim (arena, slot, AND struct
+// all returned) — maxrss is flat in K (measured 5.5 MB at K=4M).
 
 locus Worker {
     params { n: Int = 0; }
+    run() { }
 }
 
 locus Coord : projection chunked {
     params { batch: Int = 20; }
     accept(w: Worker) { }
+    release(w: Worker) { }
     run() {
         let mut i = 0;
         while i < self.batch {

@@ -84,6 +84,10 @@ if [ "$SKIP_COMPARATIVE" -eq 0 ]; then
     have go      && LANG_AVAILABLE[go-idiomatic]=1  || true
     have node    && LANG_AVAILABLE[node]=1          || true
     have python3 && LANG_AVAILABLE[python]=1        || true
+    # 2026-07-01 — the "competitive with Rust/C++" comparators.
+    # rustc single-file (std only, no cargo); clang -O3 native.
+    have rustc   && LANG_AVAILABLE[rust]=1          || true
+    have clang   && LANG_AVAILABLE[c]=1             || true
 fi
 
 mkdir -p "$RESULTS_DIR"
@@ -240,9 +244,11 @@ for entry in "${benches[@]}"; do
     # same build path as plain `go`. Benches that don't ship an
     # idiomatic.go sibling silently skip this column.
     comparatives_json="{}"
-    for lang in go go-idiomatic node python; do
+    for lang in c rust go go-idiomatic node python; do
         [ -n "${LANG_AVAILABLE[$lang]:-}" ] || continue
         case "$lang" in
+            c)             ext="c" ;;
+            rust)          ext="rs" ;;
             go)            ext="go" ;;
             go-idiomatic)  ext="idiomatic.go" ;;
             node)          ext="js" ;;
@@ -261,6 +267,31 @@ for entry in "${benches[@]}"; do
             fi
             [ -x "$go_bin" ] || { log "[$kind/$name] $lang binary missing — skipping"; continue; }
             time_binary "$go_bin" "$ITERS"
+        elif [ "$lang" = "c" ]; then
+            # clang -O3 -march=native mirrors Hale's default codegen
+            # posture (O3 + host tuning) so the comparison is
+            # toolchain-fair.
+            c_bin="$src_dir/${name}.c.cbin"
+            if [ "$SKIP_BUILD" -eq 0 ]; then
+                if ! clang -O3 -march=native -o "$c_bin" "$sibling" -lm -lpthread >/dev/null 2>&1; then
+                    log "[$kind/$name] $lang BUILD FAILED — skipping"
+                    continue
+                fi
+            fi
+            [ -x "$c_bin" ] || { log "[$kind/$name] $lang binary missing — skipping"; continue; }
+            time_binary "$c_bin" "$ITERS"
+        elif [ "$lang" = "rust" ]; then
+            # Single-file rustc (std only, no cargo): -O + host CPU
+            # tuning for parity with Hale/C.
+            rs_bin="$src_dir/${name}.rs.bin"
+            if [ "$SKIP_BUILD" -eq 0 ]; then
+                if ! rustc -O -C target-cpu=native -o "$rs_bin" "$sibling" >/dev/null 2>&1; then
+                    log "[$kind/$name] $lang BUILD FAILED — skipping"
+                    continue
+                fi
+            fi
+            [ -x "$rs_bin" ] || { log "[$kind/$name] $lang binary missing — skipping"; continue; }
+            time_binary "$rs_bin" "$ITERS"
         elif [ "$lang" = "node" ]; then
             time_binary "$sibling" "$ITERS" node
         elif [ "$lang" = "python" ]; then

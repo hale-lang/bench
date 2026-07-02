@@ -2,18 +2,23 @@
 results/
 
 # Compiled bench binaries land next to their .hl source. Source
-# files for each language stay tracked (.hl, .go, .js, .py); the
-# compiled binary that lands next to them does not.
+# files for each language stay tracked (.hl, .go, .js, .py, .c,
+# .rs); the compiled binary that lands next to them does not
+# (.go.bin, .c.cbin, .rs.bin, and the extensionless Hale binary).
 micro/*
 !micro/*.hl
 !micro/*.go
 !micro/*.js
 !micro/*.py
+!micro/*.c
+!micro/*.rs
 app/*
 !app/*.hl
 !app/*.go
 !app/*.js
 !app/*.py
+!app/*.c
+!app/*.rs
 c-twins/*
 !c-twins/*.c
 
