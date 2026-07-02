@@ -1,6 +1,14 @@
-// form_hashmap_walk_large — walk a large @form(hashmap) via
-// key_at / entry_at. Measures iteration throughput on a
-// working set that exceeds L1/L2 cache; TLB-bound at scale.
+// form_hashmap_walk_large — walk a large @form(hashmap) via the
+// iteration surface (`for e in m.entries`). Measures iteration
+// throughput on a working set that exceeds L1/L2 cache;
+// TLB-bound at scale.
+//
+// History (2026-07-02): the original walk used key_at(i) +
+// entry_at(i). Those resolve "the i-th occupied slot" by
+// rescanning from slot 0 per call — O(cap×len) for a full walk —
+// which measured 13× behind Rust's native iterator. The `for`
+// surface lowers to a cluster-aware slot-cursor walk
+// (lotus_hashmap_iter_next), O(cap) total.
 //
 // Single-pool, plain @form(hashmap) (no sync kwarg). The walk
 // is read-only and the hashmap isn't shared across pools, so
@@ -35,23 +43,15 @@ main locus App {
             i = i + 1;
         }
 
-        // Walk the hashmap via key_at / entry_at. Sum the
-        // values so the compiler can't elide the loads.
+        // Walk the hashmap via the iteration surface. Sum the
+        // values (and touch the key field) so the compiler
+        // can't elide the loads.
         let t0 = std::time::monotonic();
-        let mut j = 0;
         let mut sum = 0;
         let len = self.reg.len();
-        while j < len {
-            let k = self.reg.key_at(j) or raise;
-            let e = self.reg.entry_at(j) or raise;
+        for e in self.reg.entries {
             sum = sum + e.val;
-            j = j + 1;
-            // Suppress "k unused" — the key_at call has to
-            // execute for the measurement; a future pass might
-            // hoist or elide the call if its result is unused.
-            // Touching k cheaply prevents that without adding
-            // meaningful per-iteration cost.
-            sum = sum + (k - k);
+            sum = sum + (e.id - e.id);
         }
         let t1 = std::time::monotonic();
 
