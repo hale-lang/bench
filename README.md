@@ -1,7 +1,10 @@
 # Hale benchmark suite
 
-> Current as of hale **v0.9.0** (lock-free bus + static dispatch
-> devirtualization landed; `baselines.json` carries `hale_version`).
+> Baselines current as of hale **v0.11.3** (five language gaps closed:
+> self-field anchor retirement, String routing keys, match-expr, `@hot`
+> enforcement — an A/B against v0.11.2 measured zero microbench cost).
+> The cross-language comparative grid below is older (v0.9.0) and reads
+> as historical until re-run.
 
 Performance harness for Hale, comparing against Go / Node / Python
 sibling implementations of the same workload shape. For the language
