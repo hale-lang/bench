@@ -1,5 +1,6 @@
 {
   "updated_at": "2026-07-17T16:52:13Z",
+  "hale_version": "0.11.3",
   "benches": {
     "bus_dispatch_cross_pool": {
       "kind": "micro",

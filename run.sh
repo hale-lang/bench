@@ -382,9 +382,13 @@ if [ "$UPDATE_BASELINES" -eq 1 ]; then
             })
         }] | add // {}' \
         <<<"$report")
+    # Stamp the version of the hale binary the medians came from,
+    # so baselines.json is honest about what it measured.
+    hale_version=$("$HALE" --version 2>/dev/null | awk '{print $2}')
     jq -n --argjson b "$new_benches" --arg t "$timestamp" \
-        '{updated_at: $t, benches: $b}' > "$BASELINES"
-    log "Baselines updated."
+        --arg v "${hale_version:-unknown}" \
+        '{updated_at: $t, hale_version: $v, benches: $b}' > "$BASELINES"
+    log "Baselines updated (hale $hale_version)."
 fi
 
 # Exit non-zero on Hale regression (comparative numbers never gate).

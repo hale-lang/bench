@@ -38,6 +38,39 @@ hale-vs-X ratio is a developer signal, not a CI gate").
 Each invocation writes a timestamped JSON report under
 `results/` (gitignored).
 
+## Reproducing the comparative grid
+
+Exact steps, from nothing:
+
+```sh
+# 1. Build the Hale CLI (needs Rust 1.95+, LLVM 18, clang):
+git clone https://github.com/hale-lang/hale
+cd hale && cargo build --release -p hale-cli && cd ..
+
+# 2. Clone this repo as a sibling (run.sh finds ../hale/target/release/hale,
+#    or set HALE_BIN=/path/to/hale):
+git clone https://github.com/hale-lang/bench
+cd bench
+
+# 3. Have the comparison toolchains on PATH: go, node, python3.
+#    Any that are missing are silently skipped.
+
+# 4. Run everything (5 samples per bench, medians reported):
+./run.sh
+
+# One bench, more samples:
+./run.sh --bench=bus_dispatch --iters=10
+
+# The C / Rust comparator sweep needs clang and rustc on PATH;
+# the cross-process SHM benches are separate:
+xproc/run.sh
+```
+
+The per-bench `ratio_vs_hale` lines printed by `run.sh` (and written
+to `results/run-<stamp>.json`) are the numbers in the grid below.
+Numbers move meaningfully between machines — compare ratios from
+*your* run, not absolute times against the snapshot's Ryzen 9800X3D.
+
 ## Cross-language comparative grid
 
 Latest snapshot: **Hale v0.9.0** (2026-06-30), AMD Ryzen 7
@@ -54,7 +87,7 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `loop_overhead`             | 1.59 ms | 19.70 ms (12.4×) | 21.03 ms (13.2×) | 3.67 s (2303×) |
+| `loop_overhead` \*          | 1.59 ms | 19.70 ms (12.4×) | 21.03 ms (13.2×) | 3.67 s (2303×) |
 | `fn_call`                   | 19.14 ms | 7.72 ms (0.403×) | 4.41 ms (0.230×) | 517.65 ms (27.0×) |
 | `fn_modular`                | 38.65 ms | 15.41 ms (0.399×) | 4.04 ms (0.105×) | 630.74 ms (16.3×) |
 | `locus_instantiation`       | 1.25 ms | 152.66 µs (0.122×) | 1.02 ms (0.816×) | 12.67 ms (10.1×) |
@@ -66,6 +99,16 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 | `form_hashmap_set`          | 43.24 ms | 47.80 ms (1.11×) | 81.57 ms (1.89×) | 262.14 ms (6.06×) |
 | `form_hashmap_get`          | 1.04 ms | 1.10 ms (1.05×) | 2.72 ms (2.61×) | 9.28 ms (8.89×) |
 | `json_parse`                | 57.97 ms | 150.02 ms (2.59×) | 51.04 ms (0.88×) | 213.97 ms (3.69×) |
+
+\* `loop_overhead` is not a dead-code artifact — every sibling
+xor-accumulates into a pid-seeded value that's printed, so no side can
+eliminate the loop (verified in the sources: `micro/loop_overhead.go`
+keeps the loop; Hale's own codegen *would* fold a pure loop, which is
+why the bench was reshaped). But the 12.4× is an **autovectorization
+win, not loop-construct overhead**: LLVM vectorizes the XOR reduction
+to AVX-512 while Go's compiler emits a scalar loop (~0.016 ns/iter vs
+~0.2 ns/iter). Real, but it generalizes only to reducible loops — see
+the bench-description note below.
 
 `json_parse` is 200k parses of a 7-field market-data quote
 via the inlined `Type::from_json`. Hale **beats Go's
@@ -163,7 +206,9 @@ verified equal to the dynamic path). The bus stopped being the weak spot:
 `pipeline_3stage` 3.89 → 1.57 ms. Footprint trade-off: the lock-free rings
 pre-allocate their cap (~4.3 MB per pinned mailbox / cooperative pool at the
 default 8192) instead of growing — down-tunable via `LOTUS_BUS_QUEUE_CAP`.
-Re-baselined; `baselines.json` carries `hale_version: 0.9.0`.
+Re-baselined at the time under v0.9.0; `baselines.json` has since been
+re-baselined (its `hale_version` field names the binary the current
+medians came from — v0.11.3 as of 2026-07-17).
 
 ### App benches
 
