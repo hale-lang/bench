@@ -28,17 +28,33 @@ set -euo pipefail
 
 BENCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Locate the hale binary: prefer one on PATH, else fall back
-# to a sibling hale checkout (`../hale/target/release/hale`
-# under the hale-lang org-root mirror layout). Override with
-# HALE_BIN=/path/to/hale if neither applies.
+# Locate the hale binary. Priority (2026-07-28 fix):
+#   1. HALE_BIN=/path/to/hale     — explicit override, always wins
+#   2. ../hale/target/release/hale — the sibling DEV checkout
+#   3. `hale` on PATH              — the installed release
+# The old order preferred PATH over the sibling checkout, so a
+# machine with an installed release silently benchmarked THAT
+# instead of the tree being developed — an A/B where both sides
+# ran the same stale binary measured a compiler regression as
+# "pre-existing" for four releases. The resolved binary + its
+# version are echoed (stderr, so --json stdout stays clean);
+# read that line before trusting any number.
 if [[ -n "${HALE_BIN:-}" ]]; then
     HALE="$HALE_BIN"
+elif [[ -x "$BENCH_DIR/../hale/target/release/hale" ]]; then
+    HALE="$BENCH_DIR/../hale/target/release/hale"
 elif command -v hale >/dev/null 2>&1; then
     HALE="$(command -v hale)"
 else
-    HALE="$BENCH_DIR/../hale/target/release/hale"
+    echo "run.sh: no hale binary found (no HALE_BIN, no sibling" >&2
+    echo "  ../hale/target/release/hale, none on PATH)" >&2
+    exit 1
 fi
+if [[ ! -x "$HALE" ]]; then
+    echo "run.sh: resolved hale binary is not executable: $HALE" >&2
+    exit 1
+fi
+echo "hale: $HALE ($("$HALE" --version 2>/dev/null || echo 'version unknown'))" >&2
 BASELINES="$BENCH_DIR/baselines.json"
 RESULTS_DIR="$BENCH_DIR/results"
 
