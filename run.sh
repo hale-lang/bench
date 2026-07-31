@@ -19,7 +19,7 @@
 #   ./run.sh                     # run all + comparatives, exit on Hale regression
 #   ./run.sh --update-baselines  # overwrite baselines.json with new medians
 #   ./run.sh --bench=NAME        # run a single named bench
-#   ./run.sh --iters=N           # samples per bench (default 5)
+#   ./run.sh --iters=N           # samples per bench (default 11)
 #   ./run.sh --no-build          # skip rebuilding (use stale binaries)
 #   ./run.sh --no-comparative    # Hale only, skip go/node/python siblings
 #   ./run.sh --json              # quieter; JSON-only stdout
@@ -58,7 +58,11 @@ echo "hale: $HALE ($("$HALE" --version 2>/dev/null || echo 'version unknown'))" 
 BASELINES="$BENCH_DIR/baselines.json"
 RESULTS_DIR="$BENCH_DIR/results"
 
-ITERS=5
+# 11, not 5. The median of 5 samples is itself a noisy statistic —
+# one preempted run moves it. Every bench here runs in well under a
+# second, so the extra samples cost seconds of wall clock and buy a
+# median that does not move between runs of an unchanged binary.
+ITERS=11
 UPDATE_BASELINES=0
 SINGLE_BENCH=""
 SKIP_BUILD=0
@@ -129,6 +133,21 @@ median() {
     echo "$sorted" | sed -n "${mid}p"
 }
 
+# Relative spread of a sample set, as a fraction: (max-min)/min.
+#
+# This is the bench's OWN measured noise for this run. It is the number
+# that decides whether a delta is resolvable: a bench whose samples
+# swing 40% cannot support a 30% tolerance, and flagging one is a
+# false positive dressed as a regression.
+spread() {
+    printf '%s\n' "$@" | sort -n | awk '
+        { a[NR] = $1 }
+        END {
+            if (NR < 2 || a[1] <= 0) { print "0"; exit }
+            printf "%.4f", (a[NR] - a[1]) / a[1]
+        }'
+}
+
 # Look up a numeric field on a bench in baselines.json. Empty if absent.
 baseline_field() {
     local name="$1"; local field="$2"
@@ -177,6 +196,7 @@ time_binary() {
     _RUN_STATUS="ok"
     _RUN_ELAPSED_MEDIAN=$(median "${elapsed_samples[@]}")
     _RUN_MAXRSS_MEDIAN=$(median "${maxrss_samples[@]}")
+    _RUN_ELAPSED_SPREAD=$(spread "${elapsed_samples[@]}")
     _RUN_ELAPSED_JSON=$(printf '%s\n' "${elapsed_samples[@]}" | jq -s .)
     _RUN_MAXRSS_JSON=$(printf '%s\n' "${maxrss_samples[@]}" | jq -s .)
 }
@@ -184,6 +204,7 @@ time_binary() {
 # Per-run results gathered as one JSON object per bench.
 results_json="[]"
 regression_count=0
+inconclusive_count=0
 
 for entry in "${benches[@]}"; do
     kind="${entry%%:*}"
@@ -243,12 +264,29 @@ for entry in "${benches[@]}"; do
     if [ -n "$baseline_elapsed" ] && [ "$UPDATE_BASELINES" -eq 0 ]; then
         if awk -v cur="$hale_elapsed" -v base="$baseline_elapsed" -v tol="$tolerance" \
             'BEGIN { exit (cur > base * (1.0 + tol)) ? 0 : 1 }'; then
-            status="regression"
             pct=$(awk -v cur="$hale_elapsed" -v base="$baseline_elapsed" \
                 'BEGIN { printf "%.1f", (cur/base - 1.0) * 100.0 }')
-            regression_note="elapsed_ns ${hale_elapsed} > baseline ${baseline_elapsed} (+${pct}%, tol ${tolerance})"
-            regression_count=$((regression_count + 1))
-            log "[$kind/$name] REGRESSION: $regression_note"
+            # NOISE GUARD. A regression is only reported when this run's
+            # own sample spread is smaller than the tolerance band. If
+            # the bench swung wider than the band it is being asked to
+            # resolve, the median is not trustworthy to that precision
+            # and "regression" would be a coin flip.
+            #
+            # This is not hypothetical: coord_with_churn reported
+            # +35.1% against a BYTE-IDENTICAL binary (issue #6), on a
+            # bench whose own samples span >50%.
+            if awk -v sp="$_RUN_ELAPSED_SPREAD" -v tol="$tolerance" \
+                'BEGIN { exit (sp < tol) ? 0 : 1 }'; then
+                status="regression"
+                regression_note="elapsed_ns ${hale_elapsed} > baseline ${baseline_elapsed} (+${pct}%, tol ${tolerance}, spread ${_RUN_ELAPSED_SPREAD})"
+                regression_count=$((regression_count + 1))
+                log "[$kind/$name] REGRESSION: $regression_note"
+            else
+                status="inconclusive"
+                regression_note="elapsed_ns ${hale_elapsed} vs baseline ${baseline_elapsed} (+${pct}%) but sample spread ${_RUN_ELAPSED_SPREAD} >= tol ${tolerance} — cannot resolve; raise --iters or widen this bench's window"
+                inconclusive_count=$((inconclusive_count + 1))
+                log "[$kind/$name] INCONCLUSIVE: $regression_note"
+            fi
         fi
     fi
 
@@ -405,6 +443,15 @@ if [ "$UPDATE_BASELINES" -eq 1 ]; then
         --arg v "${hale_version:-unknown}" \
         '{updated_at: $t, hale_version: $v, benches: $b}' > "$BASELINES"
     log "Baselines updated (hale $hale_version)."
+fi
+
+# Inconclusive benches are surfaced but never gate: the run said
+# "I cannot tell", which is information, not a failure. A bench that
+# is persistently inconclusive needs a wider measurement window or a
+# tolerance matched to its real precision — see issues #6 and #7.
+if [ "$inconclusive_count" -gt 0 ]; then
+    log ""
+    log "NOTE: $inconclusive_count bench(es) INCONCLUSIVE — sample spread exceeded the tolerance band, so a regression could not be distinguished from noise"
 fi
 
 # Exit non-zero on Hale regression (comparative numbers never gate).
