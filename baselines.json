@@ -1,184 +1,206 @@
 {
-  "updated_at": "2026-09-04T16:53:02Z",
+  "updated_at": "2026-09-04T17:01:24Z",
   "hale_version": "0.19.1",
-  "runs": 3,
+  "runs": 7,
   "iters": 21,
   "benches": {
     "bus_dispatch": {
       "kind": "micro",
-      "elapsed_ns": 182652,
-      "maxrss_kb": 4880,
-      "noise": 0.0147,
-      "drift": 0.0057,
-      "runs": 3
+      "elapsed_ns": 183724,
+      "maxrss_kb": 4840,
+      "noise": 0.0215,
+      "drift_sigma": 0.0093,
+      "drift_range": 0.0251,
+      "runs": 7
     },
     "bus_dispatch_cross_pool": {
       "kind": "micro",
-      "elapsed_ns": 5133283,
-      "maxrss_kb": 9828,
-      "noise": 0.0085,
-      "drift": 0.0184,
-      "runs": 3
+      "elapsed_ns": 5172797,
+      "maxrss_kb": 9840,
+      "noise": 0.0102,
+      "drift_sigma": 0.0144,
+      "drift_range": 0.0389,
+      "runs": 7
     },
     "bus_dispatch_heap_payload": {
       "kind": "micro",
-      "elapsed_ns": 1746848,
-      "maxrss_kb": 9672,
-      "noise": 0.0154,
-      "drift": 0.0255,
-      "runs": 3
+      "elapsed_ns": 1774239,
+      "maxrss_kb": 9684,
+      "noise": 0.0162,
+      "drift_sigma": 0.0112,
+      "drift_range": 0.0303,
+      "runs": 7
     },
     "bus_publish_shm_ring": {
       "kind": "micro",
-      "elapsed_ns": 1358692,
-      "maxrss_kb": 4804,
-      "noise": 0.0051,
-      "drift": 0.0054,
-      "runs": 3
+      "elapsed_ns": 1360845,
+      "maxrss_kb": 4832,
+      "noise": 0.0034,
+      "drift_sigma": 0.0037,
+      "drift_range": 0.0101,
+      "runs": 7
     },
     "coord_with_churn": {
       "kind": "micro",
-      "elapsed_ns": 30377,
-      "maxrss_kb": 4884,
-      "noise": 0.0246,
-      "drift": 0.0405,
-      "runs": 3
+      "elapsed_ns": 30086,
+      "maxrss_kb": 4944,
+      "noise": 0.0253,
+      "drift_sigma": 0.0082,
+      "drift_range": 0.0222,
+      "runs": 7
     },
     "fn_call": {
       "kind": "micro",
-      "elapsed_ns": 11063797,
-      "maxrss_kb": 4952,
-      "noise": 0.0212,
-      "drift": 0.0149,
-      "runs": 3
+      "elapsed_ns": 11102289,
+      "maxrss_kb": 4848,
+      "noise": 0.0163,
+      "drift_sigma": 0.0163,
+      "drift_range": 0.0441,
+      "runs": 7
     },
     "fn_modular": {
       "kind": "micro",
-      "elapsed_ns": 17907199,
-      "maxrss_kb": 4868,
-      "noise": 0.0135,
-      "drift": 0.0033,
-      "runs": 3
+      "elapsed_ns": 17916857,
+      "maxrss_kb": 4892,
+      "noise": 0.0136,
+      "drift_sigma": 0.0114,
+      "drift_range": 0.0307,
+      "runs": 7
     },
     "fn_scratch_work": {
       "kind": "micro",
-      "elapsed_ns": 55925,
-      "maxrss_kb": 4780,
-      "noise": 0.0193,
-      "drift": 0.0072,
-      "runs": 3
+      "elapsed_ns": 55764,
+      "maxrss_kb": 4860,
+      "noise": 0.0122,
+      "drift_sigma": 0.0029,
+      "drift_range": 0.0079,
+      "runs": 7
     },
     "form_chunk_hint_multi_locus": {
       "kind": "micro",
-      "elapsed_ns": 200771205,
-      "maxrss_kb": 9820,
-      "noise": 0.0003,
-      "drift": 0.0,
-      "runs": 3
+      "elapsed_ns": 200754904,
+      "maxrss_kb": 9876,
+      "noise": 0.0002,
+      "drift_sigma": 0.0001,
+      "drift_range": 0.0001,
+      "runs": 7
     },
     "form_hashmap_false_sharing": {
       "kind": "micro",
-      "elapsed_ns": 16973021,
+      "elapsed_ns": 16861463,
       "maxrss_kb": 42456,
-      "noise": 0.0104,
-      "drift": 0.0263,
-      "runs": 3
+      "noise": 0.0095,
+      "drift_sigma": 0.0081,
+      "drift_range": 0.0219,
+      "runs": 7
     },
     "form_hashmap_get": {
       "kind": "micro",
-      "elapsed_ns": 1146625,
-      "maxrss_kb": 14192,
-      "noise": 0.0175,
-      "drift": 0.0745,
-      "runs": 3
+      "elapsed_ns": 1146685,
+      "maxrss_kb": 14172,
+      "noise": 0.0471,
+      "drift_sigma": 0.0176,
+      "drift_range": 0.0476,
+      "runs": 7
     },
     "form_hashmap_set": {
       "kind": "micro",
-      "elapsed_ns": 43078958,
-      "maxrss_kb": 81376,
-      "noise": 0.0223,
-      "drift": 0.0337,
-      "runs": 3
+      "elapsed_ns": 41596205,
+      "maxrss_kb": 81404,
+      "noise": 0.0191,
+      "drift_sigma": 0.0193,
+      "drift_range": 0.0521,
+      "runs": 7
     },
     "form_hashmap_walk_large": {
       "kind": "micro",
-      "elapsed_ns": 115957,
-      "maxrss_kb": 14340,
-      "noise": 0.0193,
-      "drift": 0.0322,
-      "runs": 3
+      "elapsed_ns": 116207,
+      "maxrss_kb": 14308,
+      "noise": 0.0221,
+      "drift_sigma": 0.008,
+      "drift_range": 0.0216,
+      "runs": 7
     },
     "form_vec_get": {
       "kind": "micro",
-      "elapsed_ns": 13014,
-      "maxrss_kb": 6156,
-      "noise": 0.0545,
-      "drift": 0.0989,
-      "runs": 3
+      "elapsed_ns": 12514,
+      "maxrss_kb": 6252,
+      "noise": 0.0432,
+      "drift_sigma": 0.0548,
+      "drift_range": 0.1481,
+      "runs": 7
     },
     "form_vec_push": {
       "kind": "micro",
-      "elapsed_ns": 756796,
-      "maxrss_kb": 8612,
-      "noise": 0.0298,
-      "drift": 0.0465,
-      "runs": 3
+      "elapsed_ns": 761925,
+      "maxrss_kb": 8616,
+      "noise": 0.0318,
+      "drift_sigma": 0.0664,
+      "drift_range": 0.1796,
+      "runs": 7
     },
     "json_parse": {
       "kind": "micro",
-      "elapsed_ns": 62359026,
-      "maxrss_kb": 29760,
-      "noise": 0.0093,
-      "drift": 0.0172,
-      "runs": 3
+      "elapsed_ns": 61918232,
+      "maxrss_kb": 29732,
+      "noise": 0.0035,
+      "drift_sigma": 0.0039,
+      "drift_range": 0.0105,
+      "runs": 7
     },
     "locus_instantiation": {
       "kind": "micro",
-      "elapsed_ns": 1535392,
-      "maxrss_kb": 4864,
-      "noise": 0.016,
-      "drift": 0.0015,
-      "runs": 3
+      "elapsed_ns": 1533538,
+      "maxrss_kb": 4852,
+      "noise": 0.0123,
+      "drift_sigma": 0.0061,
+      "drift_range": 0.0164,
+      "runs": 7
     },
     "loop_overhead": {
       "kind": "micro",
-      "elapsed_ns": 1775332,
-      "maxrss_kb": 4896,
-      "noise": 0.0327,
-      "drift": 0.0119,
-      "runs": 3
+      "elapsed_ns": 1789718,
+      "maxrss_kb": 4832,
+      "noise": 0.0301,
+      "drift_sigma": 0.026,
+      "drift_range": 0.0704,
+      "runs": 7
     },
     "pipeline_3stage": {
       "kind": "micro",
-      "elapsed_ns": 2102153,
-      "maxrss_kb": 9272,
-      "noise": 0.0188,
-      "drift": 0.0267,
-      "runs": 3
+      "elapsed_ns": 2099317,
+      "maxrss_kb": 9328,
+      "noise": 0.0134,
+      "drift_sigma": 0.0209,
+      "drift_range": 0.0566,
+      "runs": 7
     },
     "stream_aggregator": {
       "kind": "app",
-      "elapsed_ns": 466944,
-      "maxrss_kb": 4804,
-      "noise": 0.0074,
-      "drift": 0.0083,
-      "runs": 3
+      "elapsed_ns": 465090,
+      "maxrss_kb": 4824,
+      "noise": 0.018,
+      "drift_sigma": 0.0033,
+      "drift_range": 0.0089,
+      "runs": 7
     },
     "tree_fanout": {
       "kind": "micro",
-      "elapsed_ns": 24646,
-      "maxrss_kb": 4976,
-      "noise": 0.0301,
-      "drift": 0.0065,
-      "runs": 3
+      "elapsed_ns": 24536,
+      "maxrss_kb": 4948,
+      "noise": 0.0255,
+      "drift_sigma": 0.0367,
+      "drift_range": 0.0992,
+      "runs": 7
     },
     "vec_amortized": {
       "kind": "micro",
-      "elapsed_ns": 343032,
-      "maxrss_kb": 6244,
-      "noise": 0.0271,
-      "drift": 0.0347,
-      "runs": 3
+      "elapsed_ns": 347921,
+      "maxrss_kb": 6180,
+      "noise": 0.03,
+      "drift_sigma": 0.0694,
+      "drift_range": 0.1877,
+      "runs": 7
     }
   }
 }

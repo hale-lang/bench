@@ -23,7 +23,7 @@
 # and record BOTH noise terms. `run.sh` combines them into a band.
 #
 # Usage:
-#   ./rebaseline.sh                 # 3 runs x 21 iters, hale only
+#   ./rebaseline.sh                 # 5 runs x 21 iters, hale only
 #   ./rebaseline.sh 5 31            # 5 runs x 31 iters
 #
 # Cost: N full sweeps. Baselining is rare; being wrong about it is
@@ -32,7 +32,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-RUNS=${1:-3}
+RUNS=${1:-5}
 ITERS=${2:-21}
 
 if [ "$RUNS" -lt 2 ]; then
@@ -70,7 +70,17 @@ done
 echo ""
 echo "computing baselines from ${#reports[@]} runs"
 python3 - "${reports[@]}" <<'PY'
-import json, sys, statistics as st, subprocess, datetime
+import json, sys, statistics as st, datetime
+
+# Control-chart constants: E[range of n samples] = d2(n) * sigma.
+_D2 = {2: 1.128, 3: 1.693, 4: 2.059, 5: 2.326, 6: 2.534, 7: 2.704,
+       8: 2.847, 9: 2.970, 10: 3.078, 11: 3.173, 12: 3.258,
+       13: 3.336, 14: 3.407, 15: 3.472}
+
+def d2(n):
+    if n in _D2:
+        return _D2[n]
+    return _D2[max(_D2)] if n > max(_D2) else _D2[2]
 
 reports = [json.load(open(p)) for p in sys.argv[1:]]
 
@@ -115,10 +125,21 @@ for name, meds in sorted(per_run.items()):
         "maxrss_kb": int(st.median(rss[name])),
         # Within-run sampling noise: how well ONE run pins its median.
         "noise": round(st.median(ses[name]), 4),
-        # Between-run drift: how much that median moves on an
-        # unchanged binary. This is the term that actually limits
-        # resolution, and the one a single run cannot observe.
-        "drift": round((max(meds) - min(meds)) / min(meds), 4),
+        # Between-run drift, as an estimated SIGMA rather than the
+        # raw observed range.
+        #
+        # The range of N samples underestimates spread badly at
+        # small N — E[range] = d2(N) * sigma, and d2(3) is only
+        # 1.69. Recording the raw range from 3 runs produced bands
+        # up to 4x too tight on the noisiest benches
+        # (bus_dispatch_heap_payload got 6% for a bench that moves
+        # 21% run to run), and they fired on the next sweep of the
+        # same binary. Dividing by d2(N) makes the estimate
+        # unbiased at any N; more runs then buy PRECISION in the
+        # estimate rather than correcting a systematic error.
+        "drift_sigma": round(
+            ((max(meds) - min(meds)) / min(meds)) / d2(len(meds)), 4),
+        "drift_range": round((max(meds) - min(meds)) / min(meds), 4),
         "runs": len(meds),
     }
     if "tolerance_override" in prev.get(name, {}):
@@ -137,13 +158,14 @@ out = {
 json.dump(out, open("baselines.json", "w"), indent=2)
 open("baselines.json", "a").write("\n")
 
-def band(e, k_se=4, k_drift=2, lo=0.05, hi=0.35):
-    return min(hi, max(lo, e["noise"] * k_se, e["drift"] * k_drift))
+def band(e, k=4, lo=0.05, hi=0.35):
+    return min(hi, max(lo, e["noise"] * k, e["drift_sigma"] * k))
 
-print(f"\n{'bench':30}{'median':>11}{'noise':>8}{'drift':>8}{'band':>7}")
+print(f"\n{'bench':30}{'median':>11}{'noise':>8}{'drift s':>9}{'band':>7}")
 for n, e in sorted(benches.items(), key=lambda kv: band(kv[1])):
     print(f"{n:30}{e['elapsed_ns']/1e6:>10.2f}m"
-          f"{e['noise']*100:>7.1f}%{e['drift']*100:>7.1f}%{band(e)*100:>6.0f}%")
+          f"{e['noise']*100:>7.1f}%{e['drift_sigma']*100:>8.1f}%"
+          f"{band(e)*100:>6.0f}%")
 bs = [band(e) for e in benches.values()]
 print(f"\n{len(benches)} benches | band: min {min(bs)*100:.0f}%  "
       f"median {st.median(bs)*100:.0f}%  max {max(bs)*100:.0f}%")
