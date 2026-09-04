@@ -1,138 +1,184 @@
 {
-  "updated_at": "2026-07-17T16:52:13Z",
-  "hale_version": "0.11.3",
+  "updated_at": "2026-09-04T16:53:02Z",
+  "hale_version": "0.19.1",
+  "runs": 3,
+  "iters": 21,
   "benches": {
+    "bus_dispatch": {
+      "kind": "micro",
+      "elapsed_ns": 182652,
+      "maxrss_kb": 4880,
+      "noise": 0.0147,
+      "drift": 0.0057,
+      "runs": 3
+    },
     "bus_dispatch_cross_pool": {
       "kind": "micro",
-      "elapsed_ns": 4993563,
-      "maxrss_kb": 9600,
-      "tolerance": 0.4
+      "elapsed_ns": 5133283,
+      "maxrss_kb": 9828,
+      "noise": 0.0085,
+      "drift": 0.0184,
+      "runs": 3
     },
     "bus_dispatch_heap_payload": {
       "kind": "micro",
-      "elapsed_ns": 1582731,
-      "maxrss_kb": 9396,
-      "tolerance": 0.3
-    },
-    "bus_dispatch": {
-      "kind": "micro",
-      "elapsed_ns": 193772,
-      "maxrss_kb": 4592,
-      "tolerance": 0.3
+      "elapsed_ns": 1746848,
+      "maxrss_kb": 9672,
+      "noise": 0.0154,
+      "drift": 0.0255,
+      "runs": 3
     },
     "bus_publish_shm_ring": {
       "kind": "micro",
-      "elapsed_ns": 1351178,
-      "maxrss_kb": 4604,
-      "tolerance": 0.3
+      "elapsed_ns": 1358692,
+      "maxrss_kb": 4804,
+      "noise": 0.0051,
+      "drift": 0.0054,
+      "runs": 3
     },
     "coord_with_churn": {
       "kind": "micro",
-      "elapsed_ns": 28763,
-      "maxrss_kb": 4780,
-      "tolerance": 0.3
+      "elapsed_ns": 30377,
+      "maxrss_kb": 4884,
+      "noise": 0.0246,
+      "drift": 0.0405,
+      "runs": 3
     },
     "fn_call": {
       "kind": "micro",
-      "elapsed_ns": 11047590,
-      "maxrss_kb": 4680,
-      "tolerance": 0.3
+      "elapsed_ns": 11063797,
+      "maxrss_kb": 4952,
+      "noise": 0.0212,
+      "drift": 0.0149,
+      "runs": 3
     },
     "fn_modular": {
       "kind": "micro",
-      "elapsed_ns": 18229707,
-      "maxrss_kb": 4656,
-      "tolerance": 0.3
+      "elapsed_ns": 17907199,
+      "maxrss_kb": 4868,
+      "noise": 0.0135,
+      "drift": 0.0033,
+      "runs": 3
     },
     "fn_scratch_work": {
       "kind": "micro",
-      "elapsed_ns": 58439,
-      "maxrss_kb": 4620,
-      "tolerance": 0.35
+      "elapsed_ns": 55925,
+      "maxrss_kb": 4780,
+      "noise": 0.0193,
+      "drift": 0.0072,
+      "runs": 3
     },
     "form_chunk_hint_multi_locus": {
       "kind": "micro",
-      "elapsed_ns": 200738394,
-      "maxrss_kb": 9604,
-      "tolerance": 0.3
+      "elapsed_ns": 200771205,
+      "maxrss_kb": 9820,
+      "noise": 0.0003,
+      "drift": 0.0,
+      "runs": 3
     },
     "form_hashmap_false_sharing": {
       "kind": "micro",
-      "elapsed_ns": 16463071,
-      "maxrss_kb": 45152,
-      "tolerance": 0.4
+      "elapsed_ns": 16973021,
+      "maxrss_kb": 42456,
+      "noise": 0.0104,
+      "drift": 0.0263,
+      "runs": 3
     },
     "form_hashmap_get": {
       "kind": "micro",
-      "elapsed_ns": 1025679,
-      "maxrss_kb": 15544,
-      "tolerance": 0.4
+      "elapsed_ns": 1146625,
+      "maxrss_kb": 14192,
+      "noise": 0.0175,
+      "drift": 0.0745,
+      "runs": 3
     },
     "form_hashmap_set": {
       "kind": "micro",
-      "elapsed_ns": 47021606,
-      "maxrss_kb": 92460,
-      "tolerance": 0.3
+      "elapsed_ns": 43078958,
+      "maxrss_kb": 81376,
+      "noise": 0.0223,
+      "drift": 0.0337,
+      "runs": 3
     },
     "form_hashmap_walk_large": {
       "kind": "micro",
-      "elapsed_ns": 114524,
-      "maxrss_kb": 15452,
-      "tolerance": 0.3
+      "elapsed_ns": 115957,
+      "maxrss_kb": 14340,
+      "noise": 0.0193,
+      "drift": 0.0322,
+      "runs": 3
     },
     "form_vec_get": {
       "kind": "micro",
-      "elapsed_ns": 12333,
-      "maxrss_kb": 6080,
-      "tolerance": 0.5
+      "elapsed_ns": 13014,
+      "maxrss_kb": 6156,
+      "noise": 0.0545,
+      "drift": 0.0989,
+      "runs": 3
     },
     "form_vec_push": {
       "kind": "micro",
-      "elapsed_ns": 699619,
-      "maxrss_kb": 8360,
-      "tolerance": 0.35
+      "elapsed_ns": 756796,
+      "maxrss_kb": 8612,
+      "noise": 0.0298,
+      "drift": 0.0465,
+      "runs": 3
     },
     "json_parse": {
       "kind": "micro",
-      "elapsed_ns": 60760461,
-      "maxrss_kb": 29632,
-      "tolerance": 0.3
+      "elapsed_ns": 62359026,
+      "maxrss_kb": 29760,
+      "noise": 0.0093,
+      "drift": 0.0172,
+      "runs": 3
     },
     "locus_instantiation": {
       "kind": "micro",
-      "elapsed_ns": 1673180,
-      "maxrss_kb": 4696,
-      "tolerance": 0.3
+      "elapsed_ns": 1535392,
+      "maxrss_kb": 4864,
+      "noise": 0.016,
+      "drift": 0.0015,
+      "runs": 3
     },
     "loop_overhead": {
       "kind": "micro",
-      "elapsed_ns": 1632354,
-      "maxrss_kb": 4708,
-      "tolerance": 0.3
+      "elapsed_ns": 1775332,
+      "maxrss_kb": 4896,
+      "noise": 0.0327,
+      "drift": 0.0119,
+      "runs": 3
     },
     "pipeline_3stage": {
       "kind": "micro",
-      "elapsed_ns": 1686455,
-      "maxrss_kb": 9004,
-      "tolerance": 0.3
-    },
-    "tree_fanout": {
-      "kind": "micro",
-      "elapsed_ns": 23193,
-      "maxrss_kb": 4696,
-      "tolerance": 0.3
-    },
-    "vec_amortized": {
-      "kind": "micro",
-      "elapsed_ns": 297136,
-      "maxrss_kb": 6064,
-      "tolerance": 0.3
+      "elapsed_ns": 2102153,
+      "maxrss_kb": 9272,
+      "noise": 0.0188,
+      "drift": 0.0267,
+      "runs": 3
     },
     "stream_aggregator": {
       "kind": "app",
-      "elapsed_ns": 417261,
-      "maxrss_kb": 4600,
-      "tolerance": 0.3
+      "elapsed_ns": 466944,
+      "maxrss_kb": 4804,
+      "noise": 0.0074,
+      "drift": 0.0083,
+      "runs": 3
+    },
+    "tree_fanout": {
+      "kind": "micro",
+      "elapsed_ns": 24646,
+      "maxrss_kb": 4976,
+      "noise": 0.0301,
+      "drift": 0.0065,
+      "runs": 3
+    },
+    "vec_amortized": {
+      "kind": "micro",
+      "elapsed_ns": 343032,
+      "maxrss_kb": 6244,
+      "noise": 0.0271,
+      "drift": 0.0347,
+      "runs": 3
     }
   }
 }

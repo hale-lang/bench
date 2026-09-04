@@ -1,10 +1,10 @@
 # Hale benchmark suite
 
-> Baselines current as of hale **v0.11.3** (five language gaps closed:
-> self-field anchor retirement, String routing keys, match-expr, `@hot`
-> enforcement — an A/B against v0.11.2 measured zero microbench cost).
-> The cross-language comparative grid below is older (v0.9.0) and reads
-> as historical until re-run.
+> Baselines current as of hale **v0.19.1+** (2026-09-04), rebuilt from
+> 3 independent runs x 21 iters with per-bench tolerance bands derived
+> from measured noise — see **Tolerance bands** below.
+> The cross-language comparative grid further down is much older
+> (v0.9.0) and reads as historical until re-run.
 
 Performance harness for Hale, comparing against Go / Node / Python
 sibling implementations of the same workload shape. For the language
@@ -29,7 +29,8 @@ hale-vs-X ratio is a developer signal, not a CI gate").
 ./run.sh                       # run all + comparatives, exit 1 on Hale regression
 ./run.sh --iters=10            # more samples per bench (default 5)
 ./run.sh --bench=loop_overhead # one bench at a time
-./run.sh --update-baselines    # overwrite baselines.json with new Hale medians
+./rebaseline.sh                # rebuild baselines.json (3 runs x 21 iters)
+./rebaseline.sh 5 31           # more runs / more iters
 ./run.sh --no-build            # skip rebuild step
 ./run.sh --no-comparative      # Hale only, skip go/node/python siblings
 ./run.sh --json                # emit only the JSON report to stdout
@@ -37,6 +38,50 @@ hale-vs-X ratio is a developer signal, not a CI gate").
 
 Each invocation writes a timestamped JSON report under
 `results/` (gitignored).
+
+## Tolerance bands
+
+A band is a claim about what the harness can **resolve**, so it is
+derived from measurement rather than picked.
+
+It used to be a per-bench constant defaulting to `0.30`, which
+`--update-baselines` carried forward verbatim — so it never tracked
+anything. `fn_modular` pins its median to ~1.4% and had a 30% band: a
+real **29% regression passed the gate with a point to spare and
+survived five releases** ([hale#522][522]).
+
+Two noise terms are recorded per bench, because there are two
+independent sources and the smaller one is the tempting place to stop:
+
+| term | what it is | this suite |
+|---|---|---|
+| `noise` | within-run standard error of the median — how well ONE run pins its own number | 0.0 – 5.5% |
+| `drift` | between-run movement of that median on an **unchanged** binary | 0.0 – 9.9% |
+
+Drift usually dominates. It is machine state — thermal, page cache,
+whatever else was running — and a single run cannot see any of it,
+because every sample inside a run shares it. Building bands from
+`noise` alone produced **three false regressions against the very
+binary they were baselined on**, which is why `rebaseline.sh` exists
+and `run.sh --update-baselines` now refuses.
+
+    band = clamp(max(4 x noise, 2 x drift), 0.05, 0.35)
+
+The floor stops an unusually quiet run from producing a band that
+ordinary jitter trips. The ceiling is an honesty limit: past it a
+bench cannot resolve a regression at all, and the run-time guard
+reports INCONCLUSIVE rather than guessing.
+
+Current bands run 5% – 22%, median 8%. Set `tolerance_override` on a
+bench in `baselines.json` to pin one by hand, with a comment saying
+why.
+
+**Validated both directions** on the day it landed: two full passes
+against the baselined binary reported zero regressions and zero
+inconclusives, while v0.18.0 (which carries #522) was caught at +29.5%
+against a 5.4% band.
+
+[522]: https://github.com/hale-lang/hale/issues/522
 
 ## Reproducing the comparative grid
 
