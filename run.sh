@@ -133,19 +133,92 @@ median() {
     echo "$sorted" | sed -n "${mid}p"
 }
 
-# Relative spread of a sample set, as a fraction: (max-min)/min.
+# Relative standard error of the MEDIAN, as a fraction.
 #
-# This is the bench's OWN measured noise for this run. It is the number
-# that decides whether a delta is resolvable: a bench whose samples
-# swing 40% cannot support a 30% tolerance, and flagging one is a
-# false positive dressed as a regression.
-spread() {
+#   1.253 * stdev / sqrt(n) / median
+#
+# This is the number a tolerance band should be built from, and the
+# reason is the whole point of hale-lang/hale#522: raw sample spread
+# is not the uncertainty of the median. `fn_modular` samples swing
+# 18% run to run while its median is stable to about 2%, because a
+# median over 11 samples averages the jitter out. Building a band
+# from the spread produces a 50%+ window on a bench that can resolve
+# a 5% change — which is how a real 29% regression passed the gate
+# for five releases.
+#
+# The 1.253 factor is the asymptotic efficiency of the median
+# relative to the mean for a normal sample. Timing distributions are
+# not normal — they are right-skewed with occasional long tails — so
+# this UNDERSTATES the true uncertainty a little; NOISE_K and the
+# run-time guard below absorb that.
+median_se() {
     printf '%s\n' "$@" | sort -n | awk '
-        { a[NR] = $1 }
+        { a[NR] = $1; sum += $1 }
         END {
-            if (NR < 2 || a[1] <= 0) { print "0"; exit }
-            printf "%.4f", (a[NR] - a[1]) / a[1]
+            if (NR < 2) { print "0"; exit }
+            mid = int((NR + 1) / 2); med = a[mid];
+            if (med <= 0) { print "0"; exit }
+            mean = sum / NR;
+            for (i = 1; i <= NR; i++) { d = a[i] - mean; ss += d * d }
+            printf "%.4f", 1.253 * sqrt(ss / NR) / sqrt(NR) / med
         }'
+}
+
+# Turn a bench recording into its tolerance band.
+#
+# The band used to be a hand-set constant (default 0.30) that
+# --update-baselines carried forward verbatim, so it never tracked
+# what a bench could actually resolve. fn_modular pins its median to
+# ~2% and had a 30% band: a REAL 29% regression passed with a point
+# to spare and survived five releases (hale-lang/hale#522).
+#
+# Two noise terms, because there are two independent sources and the
+# smaller one is the tempting one to stop at:
+#
+#   noise  within-run standard error of the median — how well ONE
+#          run pins its own number. 0.3-3.5% across this suite.
+#   drift  between-run movement of that median on an UNCHANGED
+#          binary — machine state the samples inside a run all
+#          share and therefore cannot see. 0-25%, median ~5%.
+#
+# Drift dominates by 3-5x, so a band built from `noise` alone fires
+# on the next run of the same compiler. That is not hypothetical:
+# it produced three false regressions the first time this was tried.
+#
+# `tolerance_override` in baselines.json wins over all of it, for a
+# bench that is known-pathological for a reason worth writing down.
+NOISE_K=${NOISE_K:-4}
+DRIFT_K=${DRIFT_K:-2}
+NOISE_FLOOR=${NOISE_FLOOR:-0.05}
+NOISE_CEIL=${NOISE_CEIL:-0.35}
+
+band_from_noise() {
+    awk -v n="$1" -v d="$2" -v kn="$NOISE_K" -v kd="$DRIFT_K" \
+        -v lo="$NOISE_FLOOR" -v hi="$NOISE_CEIL" \
+        'BEGIN {
+            b = n * kn;
+            if (d * kd > b) b = d * kd;
+            if (b < lo) b = lo;
+            if (b > hi) b = hi;
+            printf "%.4f", b
+        }'
+}
+
+# The band this run will judge `name` against.
+resolve_tolerance() {
+    local name="$1" override noise drift
+    override=$(baseline_field "$name" "tolerance_override")
+    if [ -n "$override" ]; then echo "$override"; return; fi
+    noise=$(baseline_field "$name" "noise")
+    drift=$(baseline_field "$name" "drift")
+    if [ -n "$noise" ]; then
+        band_from_noise "$noise" "${drift:-0}"
+        return
+    fi
+    # No recorded noise (a bench added since the last baseline).
+    # Fall back to the old wide default rather than inventing a
+    # tight band from a measurement that was never taken.
+    echo "0.30"
 }
 
 # Look up a numeric field on a bench in baselines.json. Empty if absent.
@@ -196,7 +269,7 @@ time_binary() {
     _RUN_STATUS="ok"
     _RUN_ELAPSED_MEDIAN=$(median "${elapsed_samples[@]}")
     _RUN_MAXRSS_MEDIAN=$(median "${maxrss_samples[@]}")
-    _RUN_ELAPSED_SPREAD=$(spread "${elapsed_samples[@]}")
+    _RUN_ELAPSED_SE=$(median_se "${elapsed_samples[@]}")
     _RUN_ELAPSED_JSON=$(printf '%s\n' "${elapsed_samples[@]}" | jq -s .)
     _RUN_MAXRSS_JSON=$(printf '%s\n' "${maxrss_samples[@]}" | jq -s .)
 }
@@ -253,11 +326,7 @@ for entry in "${benches[@]}"; do
     # Compare against baseline.
     baseline_elapsed=$(baseline_field "$name" "elapsed_ns")
     baseline_maxrss=$(baseline_field "$name" "maxrss_kb")
-    tolerance=$(baseline_field "$name" "tolerance")
-    # Default tolerance is wide: small-bench OS jitter routinely
-    # swings sub-10ms medians by 20%+. Tighten per-bench in
-    # baselines.json once a metric stabilizes.
-    [ -z "$tolerance" ] && tolerance="0.30"
+    tolerance=$(resolve_tolerance "$name")
     status="ok"
     regression_note=""
 
@@ -267,23 +336,23 @@ for entry in "${benches[@]}"; do
             pct=$(awk -v cur="$hale_elapsed" -v base="$baseline_elapsed" \
                 'BEGIN { printf "%.1f", (cur/base - 1.0) * 100.0 }')
             # NOISE GUARD. A regression is only reported when this run's
-            # own sample spread is smaller than the tolerance band. If
-            # the bench swung wider than the band it is being asked to
-            # resolve, the median is not trustworthy to that precision
-            # and "regression" would be a coin flip.
+            # own median uncertainty is smaller than the tolerance
+            # band. If the median is less certain than the band it is
+            # being asked to resolve, "regression" would be a coin
+            # flip.
             #
             # This is not hypothetical: coord_with_churn reported
             # +35.1% against a BYTE-IDENTICAL binary (issue #6), on a
             # bench whose own samples span >50%.
-            if awk -v sp="$_RUN_ELAPSED_SPREAD" -v tol="$tolerance" \
+            if awk -v sp="$_RUN_ELAPSED_SE" -v tol="$tolerance" \
                 'BEGIN { exit (sp < tol) ? 0 : 1 }'; then
                 status="regression"
-                regression_note="elapsed_ns ${hale_elapsed} > baseline ${baseline_elapsed} (+${pct}%, tol ${tolerance}, spread ${_RUN_ELAPSED_SPREAD})"
+                regression_note="elapsed_ns ${hale_elapsed} > baseline ${baseline_elapsed} (+${pct}%, tol ${tolerance}, median SE ${_RUN_ELAPSED_SE})"
                 regression_count=$((regression_count + 1))
                 log "[$kind/$name] REGRESSION: $regression_note"
             else
                 status="inconclusive"
-                regression_note="elapsed_ns ${hale_elapsed} vs baseline ${baseline_elapsed} (+${pct}%) but sample spread ${_RUN_ELAPSED_SPREAD} >= tol ${tolerance} — cannot resolve; raise --iters or widen this bench's window"
+                regression_note="elapsed_ns ${hale_elapsed} vs baseline ${baseline_elapsed} (+${pct}%) but median SE ${_RUN_ELAPSED_SE} >= tol ${tolerance} — cannot resolve; raise --iters"
                 inconclusive_count=$((inconclusive_count + 1))
                 log "[$kind/$name] INCONCLUSIVE: $regression_note"
             fi
@@ -390,10 +459,13 @@ for entry in "${benches[@]}"; do
         --argjson rs "$hale_maxrss_json" \
         --argjson be "${baseline_elapsed:-null}" \
         --argjson br "${baseline_maxrss:-null}" \
+        --argjson sp "${_RUN_ELAPSED_SE:-0}" \
+        --argjson tol "$tolerance" \
         --argjson comps "$comparatives_json" \
         '. + [{
             name: $n, kind: $k, status: $s,
             elapsed_ns_median: $em, elapsed_ns_samples: $es,
+            elapsed_median_se: $sp, tolerance: $tol,
             maxrss_kb_median: $rm, maxrss_kb_samples: $rs,
             baseline_elapsed_ns: $be, baseline_maxrss_kb: $br,
             note: (if $note == "" then null else $note end),
@@ -417,32 +489,22 @@ else
     log "Report: $results_path"
 fi
 
-# Update baselines if requested. Comparative numbers are NOT
-# baselined — they're informational only.
+# Update baselines if requested.
+#
+# REFUSED from here on. A baseline needs the between-run drift term,
+# and a single run cannot measure it — every sample in one run shares
+# the machine state that drift IS. Baselining from one run produced
+# bands that fired on the very next run of the same binary.
+# `rebaseline.sh` does N runs and records both terms.
 if [ "$UPDATE_BASELINES" -eq 1 ]; then
     log ""
-    log "Updating $BASELINES"
-    existing_benches="{}"
-    if [ -f "$BASELINES" ]; then
-        existing_benches=$(jq '.benches // {}' "$BASELINES")
-    fi
-    new_benches=$(jq --argjson existing "$existing_benches" \
-        '[.benches[] | select(.status == "ok") | {
-            (.name): ({
-                kind: .kind,
-                elapsed_ns: .elapsed_ns_median,
-                maxrss_kb: .maxrss_kb_median,
-                tolerance: ($existing[.name].tolerance // 0.30)
-            })
-        }] | add // {}' \
-        <<<"$report")
-    # Stamp the version of the hale binary the medians came from,
-    # so baselines.json is honest about what it measured.
-    hale_version=$("$HALE" --version 2>/dev/null | awk '{print $2}')
-    jq -n --argjson b "$new_benches" --arg t "$timestamp" \
-        --arg v "${hale_version:-unknown}" \
-        '{updated_at: $t, hale_version: $v, benches: $b}' > "$BASELINES"
-    log "Baselines updated (hale $hale_version)."
+    log "run.sh --update-baselines is retired: a single run cannot"
+    log "measure between-run drift, and a band without it fires on"
+    log "the next run of the same binary. Use:"
+    log ""
+    log "    ./rebaseline.sh [runs] [iters]      # default 3 x 21"
+    log ""
+    exit 2
 fi
 
 # Inconclusive benches are surfaced but never gate: the run said
@@ -451,7 +513,7 @@ fi
 # tolerance matched to its real precision — see issues #6 and #7.
 if [ "$inconclusive_count" -gt 0 ]; then
     log ""
-    log "NOTE: $inconclusive_count bench(es) INCONCLUSIVE — sample spread exceeded the tolerance band, so a regression could not be distinguished from noise"
+    log "NOTE: $inconclusive_count bench(es) INCONCLUSIVE — median uncertainty exceeded the tolerance band, so a regression could not be distinguished from noise"
 fi
 
 # Exit non-zero on Hale regression (comparative numbers never gate).
