@@ -177,9 +177,11 @@ median_se() {
 #
 #   noise  within-run standard error of the median — how well ONE
 #          run pins its own number. 0.3-3.5% across this suite.
-#   drift  between-run movement of that median on an UNCHANGED
-#          binary — machine state the samples inside a run all
-#          share and therefore cannot see. 0-25%, median ~5%.
+#   drift_sigma  between-run movement of that median on an
+#          UNCHANGED binary, as an estimated sigma — machine state
+#          the samples inside a run all share and therefore cannot
+#          see. Recorded as range/d2(N) because a raw range from a
+#          handful of runs understates spread badly (d2(3) = 1.69).
 #
 # Drift dominates by 3-5x, so a band built from `noise` alone fires
 # on the next run of the same compiler. That is not hypothetical:
@@ -188,7 +190,7 @@ median_se() {
 # `tolerance_override` in baselines.json wins over all of it, for a
 # bench that is known-pathological for a reason worth writing down.
 NOISE_K=${NOISE_K:-4}
-DRIFT_K=${DRIFT_K:-2}
+DRIFT_K=${DRIFT_K:-4}
 NOISE_FLOOR=${NOISE_FLOOR:-0.05}
 NOISE_CEIL=${NOISE_CEIL:-0.35}
 
@@ -210,7 +212,7 @@ resolve_tolerance() {
     override=$(baseline_field "$name" "tolerance_override")
     if [ -n "$override" ]; then echo "$override"; return; fi
     noise=$(baseline_field "$name" "noise")
-    drift=$(baseline_field "$name" "drift")
+    drift=$(baseline_field "$name" "drift_sigma")
     if [ -n "$noise" ]; then
         band_from_noise "$noise" "${drift:-0}"
         return

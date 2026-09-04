@@ -29,7 +29,7 @@ hale-vs-X ratio is a developer signal, not a CI gate").
 ./run.sh                       # run all + comparatives, exit 1 on Hale regression
 ./run.sh --iters=10            # more samples per bench (default 5)
 ./run.sh --bench=loop_overhead # one bench at a time
-./rebaseline.sh                # rebuild baselines.json (3 runs x 21 iters)
+./rebaseline.sh                # rebuild baselines.json (5 runs x 21 iters)
 ./rebaseline.sh 5 31           # more runs / more iters
 ./run.sh --no-build            # skip rebuild step
 ./run.sh --no-comparative      # Hale only, skip go/node/python siblings
@@ -55,8 +55,15 @@ independent sources and the smaller one is the tempting place to stop:
 
 | term | what it is | this suite |
 |---|---|---|
-| `noise` | within-run standard error of the median — how well ONE run pins its own number | 0.0 – 5.5% |
-| `drift` | between-run movement of that median on an **unchanged** binary | 0.0 – 9.9% |
+| `noise` | within-run standard error of the median — how well ONE run pins its own number | 0.0 – 4.7% |
+| `drift_sigma` | between-run movement of that median on an **unchanged** binary, as an estimated σ | 0.0 – 6.9% |
+
+`drift_sigma` is `range / d2(N)`, not the raw range. The range of N
+samples understates spread badly at small N (`d2(3)` is only 1.69), and
+recording it raw from 3 runs produced bands up to **4x too tight** on
+the noisiest benches — they fired on the very next sweep of the same
+binary. The `d2` correction makes the estimate unbiased at any N, so
+more runs buy precision rather than fixing a systematic error.
 
 Drift usually dominates. It is machine state — thermal, page cache,
 whatever else was running — and a single run cannot see any of it,
@@ -65,21 +72,47 @@ because every sample inside a run shares it. Building bands from
 binary they were baselined on**, which is why `rebaseline.sh` exists
 and `run.sh --update-baselines` now refuses.
 
-    band = clamp(max(4 x noise, 2 x drift), 0.05, 0.35)
+    band = clamp(4 x max(noise, drift_sigma), 0.05, 0.35)
 
 The floor stops an unusually quiet run from producing a band that
 ordinary jitter trips. The ceiling is an honesty limit: past it a
 bench cannot resolve a regression at all, and the run-time guard
 reports INCONCLUSIVE rather than guessing.
 
-Current bands run 5% – 22%, median 8%. Set `tolerance_override` on a
+Current bands run 5% – 28%, median 7%. Set `tolerance_override` on a
 bench in `baselines.json` to pin one by hand, with a comment saying
 why.
 
-**Validated both directions** on the day it landed: two full passes
+### A baseline is only valid for comparable machine conditions
+
+This is a real limit, not a rough edge to file off. Drift is machine
+state, so it is a property of *the machine while measuring*, not of
+the bench. The same `bus_dispatch_heap_payload` measured **21% drift**
+across sweeps interleaved with heavy `cargo build`s and **1.1%** on a
+quiet machine an hour later — a 19x difference in the number the band
+is derived from.
+
+Practical consequences:
+
+- **Re-baseline on the machine and under the conditions you will
+  check on.** A quiet-machine baseline checked under load produces
+  false regressions; the reverse hides real ones.
+- **A regression on a busy machine is a reason to re-run, not to
+  believe.** The INCONCLUSIVE verdict catches the case where this
+  run cannot resolve its own median, but it cannot catch a run that
+  is internally consistent and globally shifted.
+- **Do not treat these bands as portable across machines.** They are
+  not, and `baselines.json` records the `hale_version` it measured
+  but has no way to record the machine.
+
+**Validated both directions** on the day it landed: four full passes
 against the baselined binary reported zero regressions and zero
-inconclusives, while v0.18.0 (which carries #522) was caught at +29.5%
-against a 5.4% band.
+inconclusives, while v0.18.0 (which carries #522) was caught and
+v0.13.0 (which predates it) passed clean.
+
+Four passes rather than two on purpose — an earlier two-pass check
+passed and the change still false-fired afterwards, because both
+passes happened to land in the same cluster of a bimodal bench.
 
 [522]: https://github.com/hale-lang/hale/issues/522
 
