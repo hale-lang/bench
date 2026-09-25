@@ -638,6 +638,29 @@ not strict apples-to-apples.
   long-lived aggregator subscribes and maintains running stats.
   Cross between bus_dispatch and a real workload.
 
+### Reclamation microbenches — "is what a write replaces given back?"
+
+A long-lived locus rewrites the same fields and collections forever;
+each bench here churns one of those shapes 1M times in a method, and
+holds its arena flat only if the replaced value is retired and
+reused. They are Hale-only: what they measure is Hale's reclamation,
+which a GC'd sibling does not have. A leak shows as memory AND time —
+the containment walk crosses every leaked chunk — so a reclamation
+regression trips the time band too. Pre-fix numbers are in each
+file's header.
+
+- **`field_same_len`** — a String self field rewritten at the same
+  length: the in-place path (hale-lang/hale#1033 kept it).
+- **`field_alt_empty`**, **`field_alt_short`** — a String self field
+  alternating heap / empty and 5 / 2 bytes (hale#1033).
+- **`field_bytes_alt`** — the Bytes side of the same (hale#1033).
+- **`field_whole_struct`** — `self.f = Frame { .. }` replaced whole,
+  String and Bytes fields retired (hale#1033).
+- **`vec_queue_pop`** — a `@form(vec)` used as a queue, push then
+  pop, the element carrying a String and a Bytes (hale#1037).
+- **`vec_set_bytes`** — `@form(vec).set` over a struct carrying
+  Bytes (hale#1037).
+
 ## Layout
 
 ```
@@ -671,7 +694,12 @@ not strict apples-to-apples.
 │   │   # Cross-pool / cache microbenches (F.32)
 │   ├── bus_dispatch_cross_pool.{hl,go,js,py}
 │   ├── form_hashmap_false_sharing.{hl,go,js,py}
-│   └── form_hashmap_walk_large.{hl,go,js,py}
+│   ├── form_hashmap_walk_large.{hl,go,js,py}
+│   │
+│   │   # Reclamation microbenches (Hale-only)
+│   ├── field_same_len.hl, field_alt_empty.hl, field_alt_short.hl
+│   ├── field_bytes_alt.hl, field_whole_struct.hl
+│   └── vec_queue_pop.hl, vec_set_bytes.hl
 ├── app/
 │   └── stream_aggregator.{ap,go,js,py}
 └── c-twins/                 (placeholder) hand-written C equivalents

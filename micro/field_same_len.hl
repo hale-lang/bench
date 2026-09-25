@@ -1,0 +1,24 @@
+// field_same_len — a String self field rewritten with a value of the
+// SAME length every call: the in-place path of
+// lotus_str_assign_in_place (memcpy over the old block, no
+// allocation). Two method calls per iteration, 1M iterations.
+//
+// Added with hale-lang/hale#1033, whose fix narrowed "in place" from
+// "fits" to "same length"; this bench guards the path it kept.
+
+locus H {
+    params { s: String = ""; n: Int = 0; }
+    fn a() { self.s = std::str::upper("hello"); self.n = self.n + 1; }
+    fn b() { self.s = std::str::upper("world"); self.n = self.n + 1; }
+}
+
+fn main() {
+    let h = H { };
+    let iters = 1000000;
+    let t0 = std::time::monotonic();
+    let mut i = 0;
+    while i < iters { h.a(); h.b(); i = i + 1; }
+    let t1 = std::time::monotonic();
+    print("n="); println(h.n);
+    print("elapsed_ns="); println(t1 - t0);
+}

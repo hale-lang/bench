@@ -1,0 +1,35 @@
+// vec_queue_pop — a @form(vec) used as a queue: push an element, pop
+// it once handled. The element is a struct carrying a String and a
+// Bytes, so pop's owned copy, the freed element and the best-fit reuse
+// freelist are all on the path.
+//
+// hale-lang/hale#1037: pop used to return the slot's own pointer and
+// free nothing — ~2260 ms and 130 MB here pre-fix, ~46 ms and flat
+// after.
+
+type SB { n: Int = 0; s: String = ""; b: Bytes = b""; }
+
+@form(vec)
+locus VSB { capacity { heap items of SB; } }
+
+locus H {
+    params { v: VSB = VSB { }; n: Int = 0; }
+    fn step(x: String, b: Bytes) {
+        self.v.push(SB { n: 1, s: x, b: b });
+        let g = self.v.pop() or SB { };
+        self.n = self.n + g.n;
+    }
+}
+
+fn main() {
+    let h = H { };
+    let x = std::str::upper("some string of forty characters or so...");
+    let b = std::bytes::from_string(x);
+    let iters = 1000000;
+    let t0 = std::time::monotonic();
+    let mut i = 0;
+    while i < iters { h.step(x, b); i = i + 1; }
+    let t1 = std::time::monotonic();
+    print("n="); println(h.n);
+    print("elapsed_ns="); println(t1 - t0);
+}
