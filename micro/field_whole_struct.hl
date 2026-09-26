@@ -1,0 +1,28 @@
+// field_whole_struct — a struct-typed self field replaced whole
+// (`self.f = Frame { .. }`), alternating a heap Bytes + String payload
+// with empties: the compound-store retire, String and Bytes fields both
+// (hale-lang/hale#1033 added the Bytes one). Pre-fix ~2590 ms and
+// 28 MB; post-fix ~75 ms and flat.
+
+type Frame { data: Bytes = b""; subject: String = ""; }
+
+locus H {
+    params { f: Frame = Frame { }; n: Int = 0; }
+    fn a(x: Bytes) {
+        self.f = Frame { data: std::bytes::slice(x, 0, 5), subject: std::str::upper("subj.x") };
+        self.n = self.n + 1;
+    }
+    fn b(x: Bytes) { self.f = Frame { data: b"", subject: "" }; self.n = self.n + 1; }
+}
+
+fn main() {
+    let x = std::bytes::from_string("abcdefghij");
+    let h = H { };
+    let iters = 1000000;
+    let t0 = std::time::monotonic();
+    let mut i = 0;
+    while i < iters { h.a(x); h.b(x); i = i + 1; }
+    let t1 = std::time::monotonic();
+    print("n="); println(h.n);
+    print("elapsed_ns="); println(t1 - t0);
+}

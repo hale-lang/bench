@@ -1,0 +1,21 @@
+// field_alt_short — a String self field alternating between a 5-byte
+// and a 2-byte heap value: the general case of hale-lang/hale#1033 (any
+// shorter write lost the block's size, not only an empty one).
+// Pre-fix ~1040 ms and 36 MB; post-fix ~62 ms and flat.
+
+locus H {
+    params { s: String = ""; n: Int = 0; }
+    fn a() { self.s = std::str::upper("hello"); self.n = self.n + 1; }
+    fn b() { self.s = std::str::upper("hi"); self.n = self.n + 1; }
+}
+
+fn main() {
+    let h = H { };
+    let iters = 1000000;
+    let t0 = std::time::monotonic();
+    let mut i = 0;
+    while i < iters { h.a(); h.b(); i = i + 1; }
+    let t1 = std::time::monotonic();
+    print("n="); println(h.n);
+    print("elapsed_ns="); println(t1 - t0);
+}

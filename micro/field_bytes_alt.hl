@@ -1,0 +1,22 @@
+// field_bytes_alt — a Bytes self field alternating between a 5-byte
+// slice and b"": the Bytes side of hale-lang/hale#1033
+// (lotus_bytes_assign_in_place). Pre-fix ~1200 ms and 44 MB; post-fix
+// ~50 ms and flat.
+
+locus H {
+    params { d: Bytes = b""; n: Int = 0; }
+    fn a(x: Bytes) { self.d = std::bytes::slice(x, 0, 5); self.n = self.n + 1; }
+    fn b(x: Bytes) { self.d = b""; self.n = self.n + 1; }
+}
+
+fn main() {
+    let x = std::bytes::from_string("abcdefghij");
+    let h = H { };
+    let iters = 1000000;
+    let t0 = std::time::monotonic();
+    let mut i = 0;
+    while i < iters { h.a(x); h.b(x); i = i + 1; }
+    let t1 = std::time::monotonic();
+    print("n="); println(h.n);
+    print("elapsed_ns="); println(t1 - t0);
+}

@@ -1,0 +1,33 @@
+// vec_set_bytes — @form(vec).set over a struct cell carrying Bytes:
+// the replaced element and its Bytes field are freed onto the reuse
+// freelist and the next set's copy reuses them.
+//
+// hale-lang/hale#1037: set's retire descriptor listed String fields
+// only, so the old Bytes stayed — ~1250 ms and 52 MB here pre-fix,
+// ~28 ms and flat after.
+
+type B1 { b: Bytes = b""; }
+
+@form(vec)
+locus VB { capacity { heap items of B1; } }
+
+locus H {
+    params { v: VB = VB { }; n: Int = 0; }
+    fn step(b: Bytes) {
+        if self.v.len() == 0 { self.v.push(B1 { b: b }); }
+        self.v.set(0, B1 { b: b }) or discard;
+        self.n = self.n + 1;
+    }
+}
+
+fn main() {
+    let h = H { };
+    let b = std::bytes::from_string("some string of forty characters or so...");
+    let iters = 1000000;
+    let t0 = std::time::monotonic();
+    let mut i = 0;
+    while i < iters { h.step(b); i = i + 1; }
+    let t1 = std::time::monotonic();
+    print("n="); println(h.n);
+    print("elapsed_ns="); println(t1 - t0);
+}

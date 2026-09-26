@@ -50,6 +50,51 @@
       "runs": 7,
       "recorded_with": "hale 0.21.0 main ac3e4baf, rebaseline.sh 7 21, 2026-09-25"
     },
+    "field_alt_empty": {
+      "kind": "micro",
+      "elapsed_ns": 47325929,
+      "maxrss_kb": 4940,
+      "noise": 0.0081,
+      "drift_sigma": 0.0051,
+      "drift_range": 0.0119,
+      "runs": 5
+    },
+    "field_alt_short": {
+      "kind": "micro",
+      "elapsed_ns": 63348601,
+      "maxrss_kb": 4900,
+      "noise": 0.0054,
+      "drift_sigma": 0.0076,
+      "drift_range": 0.0177,
+      "runs": 5
+    },
+    "field_bytes_alt": {
+      "kind": "micro",
+      "elapsed_ns": 50268200,
+      "maxrss_kb": 4900,
+      "noise": 0.0038,
+      "drift_sigma": 0.0062,
+      "drift_range": 0.0143,
+      "runs": 5
+    },
+    "field_same_len": {
+      "kind": "micro",
+      "elapsed_ns": 53034019,
+      "maxrss_kb": 4880,
+      "noise": 0.0059,
+      "drift_sigma": 0.0025,
+      "drift_range": 0.0057,
+      "runs": 5
+    },
+    "field_whole_struct": {
+      "kind": "micro",
+      "elapsed_ns": 72941314,
+      "maxrss_kb": 4932,
+      "noise": 0.005,
+      "drift_sigma": 0.013,
+      "drift_range": 0.0302,
+      "runs": 5
+    },
     "fn_call": {
       "kind": "micro",
       "elapsed_ns": 11102289,
@@ -202,6 +247,24 @@
       "drift_sigma": 0.0694,
       "drift_range": 0.1877,
       "runs": 7
+    },
+    "vec_queue_pop": {
+      "kind": "micro",
+      "elapsed_ns": 43907509,
+      "maxrss_kb": 4888,
+      "noise": 0.0043,
+      "drift_sigma": 0.012,
+      "drift_range": 0.028,
+      "runs": 5
+    },
+    "vec_set_bytes": {
+      "kind": "micro",
+      "elapsed_ns": 28031291,
+      "maxrss_kb": 4892,
+      "noise": 0.0064,
+      "drift_sigma": 0.011,
+      "drift_range": 0.0257,
+      "runs": 5
     }
   }
 }
