@@ -45,9 +45,13 @@ fi
 if [[ -n "${HALE_BIN:-}" ]]; then HALE="$HALE_BIN"
 elif [[ -x "../hale/target/release/hale" ]]; then HALE="../hale/target/release/hale"
 else HALE="$(command -v hale)"; fi
-"$HALE" --version 2>/dev/null | awk '{print $2}' > /tmp/.rebaseline_version
+# `hale --version` prints more than one line (`hale 0.21.0`, then the
+# embedded DNA digest); the stamp is the first line's version. awk
+# picks the line itself rather than `| head -1`, which would exit early
+# and hand `hale` a SIGPIPE that `set -o pipefail` turns fatal.
+"$HALE" --version 2>/dev/null | awk 'NR == 1 {print $2}' > /tmp/.rebaseline_version
 
-echo "rebaseline: $RUNS runs x $ITERS iters against $("$HALE" --version)"
+echo "rebaseline: $RUNS runs x $ITERS iters against $("$HALE" --version 2>/dev/null | awk 'NR == 1')"
 reports=()
 for i in $(seq 1 "$RUNS"); do
     echo ""
