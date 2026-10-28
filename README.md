@@ -1,10 +1,11 @@
 # Hale benchmark suite
 
-> Baselines current as of hale **v0.19.1+** (2026-09-04), rebuilt from
-> 3 independent runs x 21 iters with per-bench tolerance bands derived
-> from measured noise — see **Tolerance bands** below.
-> The cross-language comparative grid further down is much older
-> (v0.9.0) and reads as historical until re-run.
+> Baselines current as of hale **main e3240e17f** (2026-10-28; past
+> v0.29.0, reporting `hale 0.30.0`), rebuilt from 5 independent runs
+> x 21 iters with per-bench tolerance bands derived from measured
+> noise — see **Tolerance bands** below. The cross-language
+> comparative grid further down was re-run on the same build the
+> same day.
 
 Performance harness for Hale, comparing against Go / Node / Python
 sibling implementations of the same workload shape. For the language
@@ -79,7 +80,7 @@ ordinary jitter trips. The ceiling is an honesty limit: past it a
 bench cannot resolve a regression at all, and the run-time guard
 reports INCONCLUSIVE rather than guessing.
 
-Current bands run 5% – 28%, median 7%. Set `tolerance_override` on a
+Current bands run 5% – 35%, median 5%. Set `tolerance_override` on a
 bench in `baselines.json` to pin one by hand, with a comment saying
 why.
 
@@ -151,8 +152,10 @@ Numbers move meaningfully between machines — compare ratios from
 
 ## Cross-language comparative grid
 
-Latest snapshot: **Hale v0.9.0** (2026-06-30), AMD Ryzen 7
-9800X3D / x86_64 / Linux 6.18.
+Latest snapshot: **hale main e3240e17f** (past v0.29.0, reporting
+`hale 0.30.0`), 2026-10-28, AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18.
+Toolchains: Go 1.25.5, Node v25.2.1, Python 3.12.3. One `./run.sh`
+at the default 11 samples per bench; each cell is the median.
 
 Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 **ratio = sibling_time / hale_time**:
@@ -165,65 +168,82 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `loop_overhead` \*          | 1.59 ms | 19.70 ms (12.4×) | 21.03 ms (13.2×) | 3.67 s (2303×) |
-| `fn_call`                   | 19.14 ms | 7.72 ms (0.403×) | 4.41 ms (0.230×) | 517.65 ms (27.0×) |
-| `fn_modular`                | 38.65 ms | 15.41 ms (0.399×) | 4.04 ms (0.105×) | 630.74 ms (16.3×) |
-| `locus_instantiation`       | 1.25 ms | 152.66 µs (0.122×) | 1.02 ms (0.816×) | 12.67 ms (10.1×) |
-| `bus_dispatch`              | 196.4 µs | 470.6 µs (2.40×) | 1.29 ms (6.56×) | 11.28 ms (57.4×) |
-| `bus_dispatch_heap_payload` | 1.51 ms | — | — | — |
-| `bus_publish_shm_ring`      | 1.34 ms | — | — | — |
-| `form_vec_push`             | 572.86 µs | 2.76 ms (4.83×) | 3.43 ms (5.99×) | 13.31 ms (23.2×) |
-| `form_vec_get`              | 14.94 µs | 38.84 µs (2.60×) | 672.27 µs (45.0×) | 8.17 ms (547×) |
-| `form_hashmap_set`          | 43.24 ms | 47.80 ms (1.11×) | 81.57 ms (1.89×) | 262.14 ms (6.06×) |
-| `form_hashmap_get`          | 1.04 ms | 1.10 ms (1.05×) | 2.72 ms (2.61×) | 9.28 ms (8.89×) |
-| `json_parse`                | 57.97 ms | 150.02 ms (2.59×) | 51.04 ms (0.88×) | 213.97 ms (3.69×) |
+| `loop_overhead` \*          | 1.92 ms | 19.81 ms (10.3×) | 20.92 ms (10.9×) | 3.57 s (1866×) |
+| `fn_call`                   | 11.40 ms | 7.66 ms (0.672×) | 4.34 ms (0.381×) | 514.13 ms (45.1×) |
+| `fn_modular`                | 17.55 ms | 15.33 ms (0.874×) | 3.99 ms (0.227×) | 620.93 ms (35.4×) |
+| `locus_instantiation`       | 1.78 ms | 152.69 µs (0.0858×) | 935.51 µs (0.525×) | 12.19 ms (6.85×) |
+| `bus_dispatch`              | 172.86 µs | 459.18 µs (2.66×) | 1.23 ms (7.11×) | 10.91 ms (63.1×) |
+| `bus_dispatch_heap_payload` | 1.88 ms | — | — | — |
+| `bus_publish_shm_ring`      | 1.36 ms | — | — | — |
+| `form_vec_push`             | 715.64 µs | 2.53 ms (3.53×) | 3.24 ms (4.52×) | 12.78 ms (17.9×) |
+| `form_vec_get`              | 12.76 µs | 39.10 µs (3.06×) | 647.00 µs (50.7×) | 7.92 ms (620×) |
+| `form_hashmap_set`          | 38.82 ms | 48.28 ms (1.24×) | 78.95 ms (2.03×) | 261.80 ms (6.74×) |
+| `form_hashmap_get`          | 1.18 ms | 1.07 ms (0.906×) | 2.48 ms (2.10×) | 9.35 ms (7.93×) |
+| `json_parse`                | 61.99 ms | 145.11 ms (2.34×) | 50.55 ms (0.815×) | 222.95 ms (3.60×) |
 
 \* `loop_overhead` is not a dead-code artifact — every sibling
 xor-accumulates into a pid-seeded value that's printed, so no side can
 eliminate the loop (verified in the sources: `micro/loop_overhead.go`
 keeps the loop; Hale's own codegen *would* fold a pure loop, which is
-why the bench was reshaped). But the 12.4× is an **autovectorization
+why the bench was reshaped). But the 10.3× is an **autovectorization
 win, not loop-construct overhead**: LLVM vectorizes the XOR reduction
-to AVX-512 while Go's compiler emits a scalar loop (~0.016 ns/iter vs
+to AVX-512 while Go's compiler emits a scalar loop (~0.02 ns/iter vs
 ~0.2 ns/iter). Real, but it generalizes only to reducible loops — see
 the bench-description note below.
 
 `json_parse` is 200k parses of a 7-field market-data quote
 via the inlined `Type::from_json`. Hale **beats Go's
-encoding/json 2.59× and Python's json.loads 3.69×**, and
-sits ~12% behind V8's `JSON.parse` (0.88×) — the closest a
-non-V8 contender gets here, after the inline-parser +
-string-fast-path + leaf-primitive inlining work.
+encoding/json 2.34× and Python's json.loads 3.60×**, and
+sits ~18% behind V8's `JSON.parse` (0.815×).
 
 ### Amortized microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `vec_amortized`     | 342.0 µs | 1.27 ms (3.71×) | 3.13 ms (9.15×) | 14.43 ms (42.2×) |
-| `fn_scratch_work`   | 59.5 µs | 461.42 µs (7.75×) | 1.05 ms (17.6×) | 2.67 ms (44.8×) |
-| `coord_with_churn`  | 42.76 µs | 2.38 µs (0.0556×) | 112.73 µs (2.64×) | 136.47 µs (3.19×) |
+| `vec_amortized`     | 301.77 µs | 1.25 ms (4.15×) | 2.75 ms (9.12×) | 13.63 ms (45.2×) |
+| `fn_scratch_work`   | 60.38 µs | 407.24 µs (6.74×) | 931.68 µs (15.4×) | 2.61 ms (43.2×) |
+| `coord_with_churn`  | 39.91 µs | 2.05 µs (0.0515×) | 107.61 µs (2.70×) | 135.37 µs (3.39×) |
+
+### Per-iteration reclaim microbenches
+
+| Bench | Hale | Go | Node | Python |
+|---|---:|---:|---:|---:|
+| `method_loop_alloc` | 230.89 ms | 126.41 ms (0.547×) | 103.74 ms (0.449×) | 458.19 ms (1.98×) |
+
+`method_loop_alloc` holds its memory flat (maxrss 5.1 MB) because the
+loop body gets an arena per iteration (hale-lang/hale#1765). The same
+loop under v0.29.0 peaked at about 317 MB and ran about 17% slower. The
+remaining gap to Go and Node is the cost of `to_string` plus the arena
+enter/leave pair (about 60 instructions an iteration), not
+accumulation.
 
 ### Coordinated-workload microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `tree_fanout`      | 19.50 µs | 8.01 µs (0.411×) | 242.45 µs (12.4×) | 575.17 µs (29.5×) |
-| `pipeline_3stage`  | 1.57 ms | 217.0 µs (0.138×) | 1.21 ms (0.767×) | 7.28 ms (4.63×) |
+| `tree_fanout`      | 23.57 µs | 8.00 µs (0.339×) | 233.12 µs (9.89×) | 575.26 µs (24.4×) |
+| `pipeline_3stage`  | 2.25 ms | 214.89 µs (0.0954×) | 1.11 ms (0.494×) | 6.98 ms (3.10×) |
 
 ### Cross-pool / cache microbenches (F.32)
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `bus_dispatch_cross_pool`     | 5.03 ms | 6.36 ms (1.26×) | 40.63 ms (8.07×) | 85.16 ms (16.9×) |
-| `form_hashmap_false_sharing`  | 15.91 ms | 9.95 ms (0.625×) | 84.88 ms (5.34×) | 36.20 ms (2.28×) |
-| `form_hashmap_walk_large`     | 1.20 ms | 381.18 µs (0.317×) | 729.95 µs (0.608×) | 7.62 ms (6.35×) |
+| `bus_dispatch_cross_pool` † | 6.25 ms | 6.02 ms (0.964×) | 41.11 ms (6.58×) | 81.12 ms (13.0×) |
+| `form_hashmap_false_sharing`  | 20.04 ms | 9.51 ms (0.475×) | 87.04 ms (4.34×) | 36.75 ms (1.83×) |
+| `form_hashmap_walk_large`     | 113.61 µs | 380.42 µs (3.35×) | 733.19 µs (6.45×) | 7.01 ms (61.7×) |
+
+† `bus_dispatch_cross_pool` is bimodal from run to run on this host:
+its median lands near 5.1 ms or near 6.2 ms (the baseline, a median of
+five runs, is 5.27 ms, with a 35% band). This snapshot caught the slow
+mode; in the fast one Hale is about 1.2× ahead of Go.
 
 `form_hashmap_false_sharing` exercises the F.32-1γ-v2
 `sync = lockfree` discipline (cell-level CAS on the
 steady-state hot path; `remove` via tombstones; transparent
-grow when load factor exceeds 0.6). On this 2-core /
-cheap-payload bench, lockfree closes the gap with Go's
-sync.Mutex map from 1.66× (under α serialized) to 1.18×.
+grow when load factor exceeds 0.6). When it shipped, lockfree
+closed the gap with Go's sync.Mutex map on this 2-core /
+cheap-payload bench from 1.66× (under α serialized) to 1.18×;
+on this snapshot Go is 2.1× ahead (0.475×).
 The annotation chain shows the F.32-1 alternatives in
 order of measured perf on this hardware: γ-v2 (lockfree) >
 α (serialized) > β2-v2 (striped+rwlock). On higher-core-
@@ -259,8 +279,7 @@ bus family. Net vs the v0.8.1 snapshot: `bus_dispatch`
 (maxrss 110 → 9.7 MB). `bus_dispatch_cross_pool` runs the
 other way — ~11 → 25 ms — a correctness-driven increase
 (per-thread-correct wire dispatch + the per-arena subregion
-lock), within its widened 0.40 tolerance and documented in
-`baselines.json`.
+lock), within its widened 0.40 tolerance at the time.
 
 **Method-scratch elision (2026-06-28).** The compiler now skips the
 per-call scratch-arena `malloc`/`free` for a locus method / bus handler
@@ -278,21 +297,21 @@ mailbox and cooperative-pool queues became lock-free MPSC rings (genmc-verified)
 and statically-eligible local subjects skip the runtime dispatch entirely — a
 *quiet* same-thread handler is lowered to a direct synchronous call (differential-
 verified equal to the dynamic path). The bus stopped being the weak spot:
-`bus_dispatch` 1.79 → 0.196 ms (now **2.4× ahead** of Go, was ~4× behind),
-`bus_dispatch_cross_pool` 10.7 → 5.03 ms (**1.26× ahead**, was 1.6× behind),
-`stream_aggregator` 5.26 ms → 436 µs (~23× behind Go → **1.9×**),
+`bus_dispatch` 1.79 → 0.196 ms (then 2.4× ahead of Go, was ~4× behind),
+`bus_dispatch_cross_pool` 10.7 → 5.03 ms (then 1.26× ahead, was 1.6× behind),
+`stream_aggregator` 5.26 ms → 436 µs (~23× behind Go → 1.9×),
 `pipeline_3stage` 3.89 → 1.57 ms. Footprint trade-off: the lock-free rings
 pre-allocate their cap (~4.3 MB per pinned mailbox / cooperative pool at the
 default 8192) instead of growing — down-tunable via `LOTUS_BUS_QUEUE_CAP`.
 Re-baselined at the time under v0.9.0; `baselines.json` has since been
 re-baselined (its `hale_version` field names the binary the current
-medians came from — v0.11.3 as of 2026-07-17).
+medians came from — main e3240e17f, reporting 0.30.0, as of 2026-10-28).
 
 ### App benches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `stream_aggregator`  | 435.9 µs | 233.2 µs (0.535×) | 1.60 ms (3.66×) | 31.86 ms (73.1×) |
+| `stream_aggregator`  | 461.12 µs | 229.45 µs (0.498×) | 1.76 ms (3.81×) | 30.79 ms (66.8×) |
 
 ### Cross-process SHM delivery (`xproc/`)
 
@@ -500,7 +519,7 @@ normally accompany.
 - **`loop_overhead`** — tight `acc ^= i` reduction over 100M iters
   (pid-seeded + printed so it can't fold to a constant). Under the
   native-CPU + O3 defaults LLVM autovectorizes it to AVX-512, so it
-  now measures vectorized-reduction throughput (~12× vs Go's scalar
+  now measures vectorized-reduction throughput (~10× vs Go's scalar
   loop), not scalar loop overhead. No arena work.
 - **`fn_call`** — `fn step(x) -> Int { return x * 2 + 1; }` called
   10M times: free-fn call overhead for a minimal *real* body. A free
@@ -510,7 +529,7 @@ normally accompany.
   this body's `+` was treated as possibly-String-concat, so the call
   paid a scratch malloc/free (~10 ns/call); the type-aware `Add`
   classification recognizes `Int + Int` as arithmetic and now it runs
-  at ~2 ns. (The earlier `return x;` body measured nothing — a bare
+  at ~1 ns. (The earlier `return x;` body measured nothing — a bare
   identifier was always elided.)
 - **`fn_modular`** — `outer(x) { return inner(x) * 3; }` over
   `inner(x) { return x + 1; }`, 10M times: the "is factoring a hot
@@ -519,8 +538,9 @@ normally accompany.
   marked the caller possibly-allocating, so `outer` paid a scratch
   malloc per call even though `inner` allocates nothing (~21 ns/call);
   the call-graph fixpoint now proves the whole chain non-allocating
-  and it runs at ~4 ns. On factored code Hale went from ~13× Go's
-  (no-inline) call overhead to ~2.5×.
+  and it runs at ~2 ns. On factored code Hale went from ~13× Go's
+  (no-inline) call overhead to ~2.5× at the time, and to ~1.15× as of
+  the 2026-10-28 grid.
 - **`locus_instantiation`** — `Empty {}` 100k times,
   statement-position. Arena create + struct init + arena destroy
   with zero allocations in between.
@@ -547,8 +567,8 @@ allocate). Some still show overhead (`fn_call`,
 **lead** Go: after the `.get`/`.push`/`.set`/`.pop` inlines, the
 counted-loop bounds-check elimination (`for j in 0..v.len()`
 drops the per-read check Go still pays), and the native
-target-cpu + O3 defaults, `form_vec_push` is ~4.8× and
-`form_vec_get` ~2.6× *faster* than Go. (An earlier note here
+target-cpu + O3 defaults, `form_vec_push` is ~3.5× and
+`form_vec_get` ~3.1× *faster* than Go. (An earlier note here
 claimed `form_vec_get` was "60× behind Go" — that was a
 benchmark bug: the Hale variant ran 25× more iterations than the
 `.go`/`.js`/`.py` variants, so the ratio compared different
@@ -589,7 +609,7 @@ languages pay.
   Coordinator's accept() calls `worker.compute()` for each
   child; results aggregate into parent state. Tests hierarchical
   region memory + cross-locus method dispatch. **First bench
-  where Hale decisively beats Node (8.6×) and Python (20.5×).**
+  where Hale decisively beats Node (9.9×) and Python (24×).**
 - **`pipeline_3stage`** — depth=3 sequential. Source → Filter →
   Sink via two bus subjects. Tests multi-stage bus coordination
   + the cooperative scheduler's drain semantics. Currently
@@ -661,6 +681,23 @@ file's header.
 - **`vec_set_bytes`** — `@form(vec).set` over a struct carrying
   Bytes (hale#1037).
 
+### Per-iteration reclaim microbenches — "does a long loop stay flat?"
+
+A loop in a locus method, a lifecycle hook or a handler used to put
+every iteration's values in the frame's per-call scratch, freed only
+when the frame returned. Since hale-lang/hale#1765 a loop body the
+reclaim rule admits gets an arena of its own for each iteration
+(`lotus_arena_iteration_enter` at the body's entry), so what an
+iteration makes is freed when the next one starts.
+
+- **`method_loop_alloc`** — a locus method loops 10M times, each
+  iteration formatting the counter into a fresh String
+  (`to_string(i)`) and reading its length. Nothing outlives the
+  iteration. maxrss stays at about 5 MB; before #1765 the same loop
+  peaked at about 317 MB. A regression in time or maxrss here means
+  the loop stopped reclaiming per iteration. Go, Node and Python
+  siblings run the same loop in a method on a struct or class.
+
 ## Layout
 
 ```
@@ -699,7 +736,10 @@ file's header.
 │   │   # Reclamation microbenches (Hale-only)
 │   ├── field_same_len.hl, field_alt_empty.hl, field_alt_short.hl
 │   ├── field_bytes_alt.hl, field_whole_struct.hl
-│   └── vec_queue_pop.hl, vec_set_bytes.hl
+│   ├── vec_queue_pop.hl, vec_set_bytes.hl
+│   │
+│   │   # Per-iteration reclaim microbenches
+│   └── method_loop_alloc.{hl,go,js,py}
 ├── app/
 │   └── stream_aggregator.{ap,go,js,py}
 └── c-twins/                 (placeholder) hand-written C equivalents
@@ -752,7 +792,8 @@ silently skipped if its toolchain is missing.
    shape as closely as the language permits. Each must also
    print one `elapsed_ns=N` line. The harness picks them up
    automatically by filename stem.
-4. Run `./run.sh --update-baselines` to seed.
+4. Run `./rebaseline.sh` to seed (`run.sh --update-baselines`
+   is retired; see **Tolerance bands**).
 5. Commit the new sources + the updated `baselines.json`.
 
 ## Reading the report

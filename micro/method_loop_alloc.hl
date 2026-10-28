@@ -1,0 +1,53 @@
+// method_loop_alloc — a loop in a locus method that makes a fresh
+// value every iteration and drops it before the next.
+//
+// Each of 10M iterations formats the counter into a new String,
+// reads its length, and lets it go. Nothing outlives the iteration.
+//
+// What it measures: the per-iteration arena (hale-lang/hale#1765).
+// A loop body that the reclaim rule admits gets an arena of its own
+// for each iteration — `lotus_arena_iteration_enter` at the body's
+// entry frees the last iteration's values and opens a fresh arena —
+// so the method's memory stays flat however long the loop runs.
+// Before #1765 every String landed in the method's per-call scratch
+// and was freed only when `work()` returned: about 317 MB peak for
+// this loop, against about 5 MB with the per-iteration arena.
+//
+// A regression here in time or in maxrss_kb means the loop stopped
+// reclaiming per iteration (the arena enter/leave pair costs about
+// 60 instructions an iteration; growing the scratch costs more).
+//
+// Siblings: a method on a struct / class with the same loop. The GC'd
+// languages free each string whenever their collector runs.
+locus Bench {
+    params {
+        n: Int = 10000000;
+    }
+
+    fn work() -> Int {
+        let mut i = 0;
+        let mut total = 0;
+        while i < self.n {
+            let s = to_string(i);
+            total = total + len(s);
+            i = i + 1;
+        }
+        return total;
+    }
+
+    run() {
+        let t0 = std::time::monotonic();
+        let total = self.work();
+        let t1 = std::time::monotonic();
+        print("n=");
+        println(self.n);
+        print("total=");
+        println(total);
+        print("elapsed_ns=");
+        println(t1 - t0);
+    }
+}
+
+fn main() {
+    let b = Bench { };
+}
