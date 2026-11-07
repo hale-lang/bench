@@ -1,11 +1,13 @@
 # Hale benchmark suite
 
-> Baselines current as of hale **main e3240e17f** (2026-10-28; past
-> v0.29.0, reporting `hale 0.30.0`), rebuilt from 5 independent runs
+> Baselines current as of hale **main 25fe52518** (2026-11-07; past
+> v0.32.7, reporting `hale 0.32.7`), rebuilt from 5 independent runs
 > x 21 iters with per-bench tolerance bands derived from measured
-> noise — see **Tolerance bands** below. The cross-language
-> comparative grid further down was re-run on the same build the
-> same day.
+> noise — see **Tolerance bands** below. Every bench is built
+> `--target-cpu native` whatever `hale build`'s default (it was the
+> portable baseline from v0.32.1 to v0.32.7, which halved
+> `loop_overhead`). The cross-language comparative grid further down
+> was re-run on the same build the same day.
 
 Performance harness for Hale, comparing against Go / Node / Python
 sibling implementations of the same workload shape. For the language
@@ -80,7 +82,7 @@ ordinary jitter trips. The ceiling is an honesty limit: past it a
 bench cannot resolve a regression at all, and the run-time guard
 reports INCONCLUSIVE rather than guessing.
 
-Current bands run 5% – 35%, median 5%. Set `tolerance_override` on a
+Current bands run 5% – 35%, median 6%. Set `tolerance_override` on a
 bench in `baselines.json` to pin one by hand, with a comment saying
 why.
 
@@ -152,10 +154,11 @@ Numbers move meaningfully between machines — compare ratios from
 
 ## Cross-language comparative grid
 
-Latest snapshot: **hale main e3240e17f** (past v0.29.0, reporting
-`hale 0.30.0`), 2026-10-28, AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18.
-Toolchains: Go 1.25.5, Node v25.2.1, Python 3.12.3. One `./run.sh`
-at the default 11 samples per bench; each cell is the median.
+Latest snapshot: **hale main 25fe52518** (past v0.32.7, reporting
+`hale 0.32.7`), 2026-11-07, AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18.
+Toolchains: Go 1.25.5, Node v25.2.1, Python 3.12.3. One `./run.sh
+--iters=11`, every Hale bench built `--target-cpu native`; each cell
+is the median.
 
 Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 **ratio = sibling_time / hale_time**:
@@ -168,24 +171,24 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `loop_overhead` \*          | 1.92 ms | 19.81 ms (10.3×) | 20.92 ms (10.9×) | 3.57 s (1866×) |
-| `fn_call`                   | 11.40 ms | 7.66 ms (0.672×) | 4.34 ms (0.381×) | 514.13 ms (45.1×) |
-| `fn_modular`                | 17.55 ms | 15.33 ms (0.874×) | 3.99 ms (0.227×) | 620.93 ms (35.4×) |
-| `locus_instantiation`       | 1.78 ms | 152.69 µs (0.0858×) | 935.51 µs (0.525×) | 12.19 ms (6.85×) |
-| `bus_dispatch`              | 172.86 µs | 459.18 µs (2.66×) | 1.23 ms (7.11×) | 10.91 ms (63.1×) |
-| `bus_dispatch_heap_payload` | 1.88 ms | — | — | — |
+| `loop_overhead` \*          | 1.74 ms | 19.69 ms (11.3×) | 20.83 ms (11.9×) | 3.53 s (2023×) |
+| `fn_call`                   | 9.11 ms | 7.68 ms (0.843×) | 4.36 ms (0.478×) | 506.53 ms (55.6×) |
+| `fn_modular`                | 17.85 ms | 15.34 ms (0.86×) | 3.95 ms (0.221×) | 608.14 ms (34.1×) |
+| `locus_instantiation`       | 1.79 ms | 152.73 µs (0.0854×) | 975.16 µs (0.545×) | 12.06 ms (6.74×) |
+| `bus_dispatch`              | 173.03 µs | 458.04 µs (2.65×) | 1.24 ms (7.18×) | 10.77 ms (62.2×) |
+| `bus_dispatch_heap_payload` | 2.04 ms | — | — | — |
 | `bus_publish_shm_ring`      | 1.36 ms | — | — | — |
-| `form_vec_push`             | 715.64 µs | 2.53 ms (3.53×) | 3.24 ms (4.52×) | 12.78 ms (17.9×) |
-| `form_vec_get`              | 12.76 µs | 39.10 µs (3.06×) | 647.00 µs (50.7×) | 7.92 ms (620×) |
-| `form_hashmap_set`          | 38.82 ms | 48.28 ms (1.24×) | 78.95 ms (2.03×) | 261.80 ms (6.74×) |
-| `form_hashmap_get`          | 1.18 ms | 1.07 ms (0.906×) | 2.48 ms (2.10×) | 9.35 ms (7.93×) |
-| `json_parse`                | 61.99 ms | 145.11 ms (2.34×) | 50.55 ms (0.815×) | 222.95 ms (3.60×) |
+| `form_vec_push`             | 686.97 µs | 2.58 ms (3.75×) | 3.10 ms (4.52×) | 13.00 ms (18.9×) |
+| `form_vec_get`              | 12.98 µs | 39.34 µs (3.03×) | 649.35 µs (50.0×) | 7.84 ms (603×) |
+| `form_hashmap_set`          | 39.10 ms | 48.55 ms (1.24×) | 77.25 ms (1.98×) | 254.59 ms (6.51×) |
+| `form_hashmap_get`          | 1.12 ms | 1.08 ms (0.965×) | 2.46 ms (2.20×) | 9.19 ms (8.21×) |
+| `json_parse`                | 61.72 ms | 144.20 ms (2.34×) | 50.88 ms (0.824×) | 223.89 ms (3.63×) |
 
 \* `loop_overhead` is not a dead-code artifact — every sibling
 xor-accumulates into a pid-seeded value that's printed, so no side can
 eliminate the loop (verified in the sources: `micro/loop_overhead.go`
 keeps the loop; Hale's own codegen *would* fold a pure loop, which is
-why the bench was reshaped). But the 10.3× is an **autovectorization
+why the bench was reshaped). But the 11.3× is an **autovectorization
 win, not loop-construct overhead**: LLVM vectorizes the XOR reduction
 to AVX-512 while Go's compiler emits a scalar loop (~0.02 ns/iter vs
 ~0.2 ns/iter). Real, but it generalizes only to reducible loops — see
@@ -193,22 +196,22 @@ the bench-description note below.
 
 `json_parse` is 200k parses of a 7-field market-data quote
 via the inlined `Type::from_json`. Hale **beats Go's
-encoding/json 2.34× and Python's json.loads 3.60×**, and
-sits ~18% behind V8's `JSON.parse` (0.815×).
+encoding/json 2.34× and Python's json.loads 3.63×**, and
+sits ~21% behind V8's `JSON.parse` (0.824×).
 
 ### Amortized microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `vec_amortized`     | 301.77 µs | 1.25 ms (4.15×) | 2.75 ms (9.12×) | 13.63 ms (45.2×) |
-| `fn_scratch_work`   | 60.38 µs | 407.24 µs (6.74×) | 931.68 µs (15.4×) | 2.61 ms (43.2×) |
-| `coord_with_churn`  | 39.91 µs | 2.05 µs (0.0515×) | 107.61 µs (2.70×) | 135.37 µs (3.39×) |
+| `vec_amortized`     | 314.75 µs | 1.26 ms (4.01×) | 2.86 ms (9.08×) | 13.54 ms (43.0×) |
+| `fn_scratch_work`   | 60.31 µs | 432.83 µs (7.18×) | 923.43 µs (15.3×) | 2.61 ms (43.3×) |
+| `coord_with_churn`  | 36.87 µs | 2.04 µs (0.0554×) | 110.64 µs (3.00×) | 136.18 µs (3.69×) |
 
 ### Per-iteration reclaim microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `method_loop_alloc` | 230.89 ms | 126.41 ms (0.547×) | 103.74 ms (0.449×) | 458.19 ms (1.98×) |
+| `method_loop_alloc` | 229.22 ms | 126.69 ms (0.553×) | 103.58 ms (0.452×) | 458.08 ms (2.00×) |
 
 `method_loop_alloc` holds its memory flat (maxrss 5.1 MB) because the
 loop body gets an arena per iteration (hale-lang/hale#1765). The same
@@ -221,20 +224,20 @@ accumulation.
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `tree_fanout`      | 23.57 µs | 8.00 µs (0.339×) | 233.12 µs (9.89×) | 575.26 µs (24.4×) |
-| `pipeline_3stage`  | 2.25 ms | 214.89 µs (0.0954×) | 1.11 ms (0.494×) | 6.98 ms (3.10×) |
+| `tree_fanout`      | 24.05 µs | 8.00 µs (0.332×) | 223.72 µs (9.30×) | 571.52 µs (23.8×) |
+| `pipeline_3stage`  | 2.25 ms | 214.95 µs (0.0955×) | 1.42 ms (0.629×) | 6.91 ms (3.07×) |
 
 ### Cross-pool / cache microbenches (F.32)
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `bus_dispatch_cross_pool` † | 6.25 ms | 6.02 ms (0.964×) | 41.11 ms (6.58×) | 81.12 ms (13.0×) |
-| `form_hashmap_false_sharing`  | 20.04 ms | 9.51 ms (0.475×) | 87.04 ms (4.34×) | 36.75 ms (1.83×) |
-| `form_hashmap_walk_large`     | 113.61 µs | 380.42 µs (3.35×) | 733.19 µs (6.45×) | 7.01 ms (61.7×) |
+| `bus_dispatch_cross_pool` † | 6.26 ms | 6.08 ms (0.972×) | 38.70 ms (6.18×) | 81.47 ms (13.0×) |
+| `form_hashmap_false_sharing`  | 20.00 ms | 9.54 ms (0.477×) | 85.51 ms (4.27×) | 36.72 ms (1.84×) |
+| `form_hashmap_walk_large`     | 111.62 µs | 382.18 µs (3.42×) | 721.12 µs (6.46×) | 7.07 ms (63.3×) |
 
 † `bus_dispatch_cross_pool` is bimodal from run to run on this host:
 its median lands near 5.1 ms or near 6.2 ms (the baseline, a median of
-five runs, is 5.27 ms, with a 35% band). This snapshot caught the slow
+five runs, is 5.17 ms, with a 35% band). This snapshot caught the slow
 mode; in the fast one Hale is about 1.2× ahead of Go.
 
 `form_hashmap_false_sharing` exercises the F.32-1γ-v2
@@ -311,7 +314,7 @@ medians came from — main e3240e17f, reporting 0.30.0, as of 2026-10-28).
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `stream_aggregator`  | 461.12 µs | 229.45 µs (0.498×) | 1.76 ms (3.81×) | 30.79 ms (66.8×) |
+| `stream_aggregator`  | 446.16 µs | 229.10 µs (0.513×) | 1.77 ms (3.96×) | 31.19 ms (69.9×) |
 
 ### Cross-process SHM delivery (`xproc/`)
 
