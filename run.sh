@@ -293,10 +293,15 @@ for entry in "${benches[@]}"; do
 
     bin="${src%.hl}"
 
-    # Build the Hale binary (or trust an existing one).
+    # Build the Hale binary (or trust an existing one). `--target-cpu
+    # native` is said even where it is the default: the benches measure
+    # the compiler's best code for THIS machine, and a default that moved
+    # once (hale v0.32.1 to v0.32.7 built portable x86-64-v3 unless told
+    # otherwise) halved `loop_overhead`, an AVX-512 reduction, and
+    # looked like a codegen regression.
     if [ "$SKIP_BUILD" -eq 0 ]; then
         log "[$kind/$name] building"
-        if ! HALE_SKIP_STALE_CHECK=1 "$HALE" build "$src" >/dev/null 2>&1; then
+        if ! HALE_SKIP_STALE_CHECK=1 "$HALE" build "$src" --target-cpu native >/dev/null 2>&1; then
             log "[$kind/$name] HALE BUILD FAILED — skipping"
             results_json=$(jq --arg n "$name" --arg k "$kind" \
                 '. + [{name: $n, kind: $k, status: "build_failed"}]' \
