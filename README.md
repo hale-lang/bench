@@ -1,24 +1,13 @@
 # Hale benchmark suite
 
-> Baselines current as of hale **main 25fe52518** (2026-11-07; past
-> v0.32.7, reporting `hale 0.32.7`), rebuilt from 5 independent runs
-> x 21 iters with per-bench tolerance bands derived from measured
-> noise — see **Tolerance bands** below. Every bench is built
-> `--target-cpu native` whatever `hale build`'s default (it was the
-> portable baseline from v0.32.1 to v0.32.7, which halved
-> `loop_overhead`). The cross-language comparative grid further down
-> was re-run on the same build the same day.
->
-> Added 2026-11-19 on hale **main 1e4fd190d** (v0.36.0): the v1 gate
-> measures under `gates/` and three microbenches (`bus_round_trip`,
-> `bus_round_trip_cross_pool`, `json_encode`). Their baselines carry
-> that version; the other benches were **not** re-baselined, because
-> two of them regressed between v0.32.7 and v0.33.0 and still are on
-> v0.36.0 — `loop_overhead` 1.86 → 19.9 ms (10.7×, the AVX-512
-> reduction is gone) and `form_vec_get` 13.3 → 40.7 µs (3.1×) — and
-> a baseline taken now would hide them. `run.sh` reports both, and on
-> the same run `form_hashmap_walk_large` (+7.6%) and `stream_aggregator`
-> (+8.0%) trip their bands as well.
+> Baselines current as of hale **v0.36.0** (main 1e4fd190d,
+> 2026-11-19), rebuilt from 5 independent runs x 21 iters with
+> per-bench tolerance bands derived from measured noise — see
+> **Tolerance bands** below. Every bench is built `--target-cpu native`
+> whatever `hale build`'s default. The cross-language comparative grid,
+> the cross-process SHM tables and the v1 gate measures further down
+> were re-run on the same build the same day. What moved since the
+> previous baselines (v0.32.7) and why: **Since v0.32.7**, below.
 
 Performance harness for Hale, comparing against Go / Node / Python
 sibling implementations of the same workload shape. For the language
@@ -73,8 +62,8 @@ independent sources and the smaller one is the tempting place to stop:
 
 | term | what it is | this suite |
 |---|---|---|
-| `noise` | within-run standard error of the median — how well ONE run pins its own number | 0.0 – 4.7% |
-| `drift_sigma` | between-run movement of that median on an **unchanged** binary, as an estimated σ | 0.0 – 6.9% |
+| `noise` | within-run standard error of the median — how well ONE run pins its own number | 0.0 – 3.9% |
+| `drift_sigma` | between-run movement of that median on an **unchanged** binary, as an estimated σ | 0.0 – 4.1% |
 
 `drift_sigma` is `range / d2(N)`, not the raw range. The range of N
 samples understates spread badly at small N (`d2(3)` is only 1.69), and
@@ -97,7 +86,7 @@ ordinary jitter trips. The ceiling is an honesty limit: past it a
 bench cannot resolve a regression at all, and the run-time guard
 reports INCONCLUSIVE rather than guessing.
 
-Current bands run 5% – 35%, median 6%. Set `tolerance_override` on a
+Current bands run 5% – 16%, median 5%. Set `tolerance_override` on a
 bench in `baselines.json` to pin one by hand, with a comment saying
 why.
 
@@ -167,10 +156,78 @@ to `results/run-<stamp>.json`) are the numbers in the grid below.
 Numbers move meaningfully between machines — compare ratios from
 *your* run, not absolute times against the snapshot's Ryzen 9800X3D.
 
+## Since v0.32.7
+
+The previous baselines were taken on hale main 25fe52518 (v0.32.7,
+2026-11-07). Against **their** tolerance bands, the v0.36.0 baselines
+(5 runs x 21 iters) put four benches out of band. All four are slower,
+and all four come from one change:
+
+| Bench | v0.32.7 | v0.36.0 | Δ | Band | Cause |
+|---|---:|---:|---:|---:|---|
+| `loop_overhead` | 1.86 ms | 19.99 ms | +974% | 10.1% | hale#1874's drain latch on every loop back-edge in `fn main`: the per-iteration atomic load keeps the XOR reduction from vectorizing ([hale#2089](https://github.com/hale-lang/hale/issues/2089)) |
+| `form_vec_get` | 13.3 µs | 42.0 µs | +217% | 14.1% | the same; its read loop is in `fn main` (hale#2089) |
+| `form_hashmap_walk_large` | 114.5 µs | 123.1 µs | +7.5% | 5.0% | the latch's own cost on the walk loop in `run()` |
+| `stream_aggregator` | 435.7 µs | 466.1 µs | +7.0% | 6.2% | the latch's own cost on the publisher's `run()` loop |
+
+**How it was placed.** Each bench built by the v0.32.7 release, by
+hale at the merge of hale#1874 (168ac285b) and at its first parent, and
+by every release since; interleaved runs, the median of 7 (first two
+rows) or 11 (last two):
+
+| Bench | v0.32.7 | #1874^1 | #1874 | v0.33.0 | v0.34.0 | v0.35.0 | v0.36.0 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `loop_overhead` | 1.71 ms | 1.65 ms | 20.0 ms | | | | 20.0 ms |
+| `form_vec_get` | 11.4 µs | 11.2 µs | 41.9 µs | | | | 43.8 µs |
+| `form_hashmap_walk_large` | 118.3 µs | 115.8 µs | 121.3 µs | 119.1 µs | 118.0 µs | 120.1 µs | 120.5 µs |
+| `stream_aggregator` | 439.0 µs | 439.9 µs | 460.9 µs | 460.6 µs | 457.9 µs | 466.7 µs | 469.9 µs |
+
+The step is at hale#1874 and nowhere else. Since that change (GH #1858),
+a SIGTERM ends every loop in `fn main` and in a `run()` that does not
+read `draining` between two iterations, so the program runs its
+`drain()` / `dissolve()` hooks and exits 0. Each such loop ends its
+iteration at a latch: a monotonic load of the process's drain flag and
+a cold branch to the exit. The disassembly shows it: at v0.36.0,
+`loop_overhead`'s loop is `xor` / `inc` / a load of
+`lotus_process_draining_flag`, where before it was the AVX-512
+reduction. The same loop in a plain `fn` has no latch and still
+vectorizes (2.3 ms on v0.36.0).
+
+**Expected?** The latch is by design, and so is a few percent on a loop
+that does real work (the last two rows). The lost vectorization was not
+considered when it landed; it is
+[hale#2089](https://github.com/hale-lang/hale/issues/2089), with
+strip-mining the check (once per K iterations) as the likely fix. These
+baselines carry the cost, so a fix will show here as an improvement.
+
+**Everything else is inside its band.** The largest in-band moves are
+`form_vec_push` +12.8% (band 20.8%) and `vec_amortized` +5.1% (band
+35%). The range's other runtime changes, the ones a bench could have
+seen, move nothing out of band: bounded-value copies and retirement
+(hale#1905, #1919, #1961), linear string building (#1960), O(1) string
+`len` (#2018), ring-buffer push without a copy (#2044) and the `let`
+write rules (#2055). No existing bench exercises most of those shapes
+directly.
+
+**maxrss** is about 10% (≈0.5 MB) lower on nearly every bench. That is
+not a hale change. The baseline's own commit, 25fe52518, rebuilt and
+run today, gives `stream_aggregator` 4.26 MB against the 4.98 MB
+recorded on 2026-11-07, so the same compiler measures lower on today's
+machine state. maxrss is not gated.
+
+**Cross-process SHM (`xproc/`)** has no baseline file. v0.32.7 and
+v0.36.0 run back to back give the same numbers within noise (small:
+per-record 12.55 / 12.31 ms, `Drain<T>` 2.80 / 2.80 ms; large: 18.20 /
+19.22 ms, 20.51 / 20.84 ms).
+
+**New since then:** `bus_round_trip`, `bus_round_trip_cross_pool` and
+`json_encode` (added on v0.36.0, now baselined with the full suite)
+and the v1 gate measures under `gates/`, which are measured only.
+
 ## Cross-language comparative grid
 
-Latest snapshot: **hale main 25fe52518** (past v0.32.7, reporting
-`hale 0.32.7`), 2026-11-07, AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18.
+Latest snapshot: **hale v0.36.0** (main 1e4fd190d), 2026-11-19, AMD
+Ryzen 7 9800X3D / x86_64 / Linux 6.18.
 Toolchains: Go 1.25.5, Node v25.2.1, Python 3.12.3. One `./run.sh
 --iters=11`, every Hale bench built `--target-cpu native`; each cell
 is the median.
@@ -186,39 +243,41 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `loop_overhead` \*          | 1.74 ms | 19.69 ms (11.3×) | 20.83 ms (11.9×) | 3.53 s (2023×) |
-| `fn_call`                   | 9.11 ms | 7.68 ms (0.843×) | 4.36 ms (0.478×) | 506.53 ms (55.6×) |
-| `fn_modular`                | 17.85 ms | 15.34 ms (0.86×) | 3.95 ms (0.221×) | 608.14 ms (34.1×) |
-| `locus_instantiation`       | 1.79 ms | 152.73 µs (0.0854×) | 975.16 µs (0.545×) | 12.06 ms (6.74×) |
-| `bus_dispatch`              | 173.03 µs | 458.04 µs (2.65×) | 1.24 ms (7.18×) | 10.77 ms (62.2×) |
-| `bus_dispatch_heap_payload` | 2.04 ms | — | — | — |
-| `bus_publish_shm_ring`      | 1.36 ms | — | — | — |
-| `bus_round_trip` ‡          | 6.89 ms | — | — | — |
-| `form_vec_push`             | 686.97 µs | 2.58 ms (3.75×) | 3.10 ms (4.52×) | 13.00 ms (18.9×) |
-| `form_vec_get`              | 12.98 µs | 39.34 µs (3.03×) | 649.35 µs (50.0×) | 7.84 ms (603×) |
-| `form_hashmap_set`          | 39.10 ms | 48.55 ms (1.24×) | 77.25 ms (1.98×) | 254.59 ms (6.51×) |
-| `form_hashmap_get`          | 1.12 ms | 1.08 ms (0.965×) | 2.46 ms (2.20×) | 9.19 ms (8.21×) |
-| `json_parse`                | 61.72 ms | 144.20 ms (2.34×) | 50.88 ms (0.824×) | 223.89 ms (3.63×) |
-| `json_encode` ‡             | 63.49 ms | 31.62 ms (0.498×) | 17.98 ms (0.283×) | 324.37 ms (5.11×) |
-
-‡ Added 2026-11-19 and measured then, on hale main 1e4fd190d (v0.36.0),
-same host and toolchains, one `./run.sh --iters=11`; the other rows are
-the 2026-11-07 snapshot.
+| `loop_overhead` \*          | 20.03 ms | 19.52 ms (0.975×) | 20.64 ms (1.03×) | 3.48 s (174×) |
+| `fn_call`                   | 11.48 ms | 7.68 ms (0.669×) | 4.38 ms (0.381×) | 509.83 ms (44.4×) |
+| `fn_modular`                | 17.27 ms | 15.34 ms (0.888×) | 3.99 ms (0.231×) | 615.81 ms (35.7×) |
+| `locus_instantiation`       | 1.79 ms | 152.81 µs (0.0855×) | 983.69 µs (0.550×) | 12.41 ms (6.94×) |
+| `bus_dispatch`              | 173.41 µs | 464.39 µs (2.68×) | 1.25 ms (7.21×) | 11.00 ms (63.4×) |
+| `bus_dispatch_heap_payload` | 1.98 ms | — | — | — |
+| `bus_publish_shm_ring`      | 1.39 ms | — | — | — |
+| `bus_round_trip`            | 6.88 ms | — | — | — |
+| `form_vec_push`             | 721.45 µs | 2.52 ms (3.49×) | 3.57 ms (4.95×) | 12.89 ms (17.9×) |
+| `form_vec_get`              | 40.58 µs | 39.28 µs (0.968×) | 658.86 µs (16.2×) | 7.76 ms (191×) |
+| `form_hashmap_set`          | 39.83 ms | 49.02 ms (1.23×) | 80.34 ms (2.02×) | 256.88 ms (6.45×) |
+| `form_hashmap_get`          | 1.16 ms | 1.07 ms (0.926×) | 2.51 ms (2.17×) | 9.16 ms (7.92×) |
+| `json_parse`                | 63.60 ms | 142.74 ms (2.24×) | 50.89 ms (0.800×) | 223.19 ms (3.51×) |
+| `json_encode`               | 63.56 ms | 31.80 ms (0.500×) | 18.06 ms (0.284×) | 327.01 ms (5.15×) |
 
 \* `loop_overhead` is not a dead-code artifact — every sibling
 xor-accumulates into a pid-seeded value that's printed, so no side can
 eliminate the loop (verified in the sources: `micro/loop_overhead.go`
 keeps the loop; Hale's own codegen *would* fold a pure loop, which is
-why the bench was reshaped). But the 11.3× is an **autovectorization
-win, not loop-construct overhead**: LLVM vectorizes the XOR reduction
-to AVX-512 while Go's compiler emits a scalar loop (~0.02 ns/iter vs
-~0.2 ns/iter). Real, but it generalizes only to reducible loops — see
-the bench-description note below.
+why the bench was reshaped). Through v0.32.7 Hale led Go 11× here, and
+that was an **autovectorization win, not loop-construct overhead**:
+LLVM vectorized the XOR reduction to AVX-512 while Go's compiler emits
+a scalar loop (~0.02 ns/iter vs ~0.2 ns/iter). Since hale#1874 (v0.33.0)
+every loop in `fn main` and in a `run()` ends each iteration at a load
+of the process's drain flag, so the loop can be stopped between
+iterations on SIGTERM; that per-iteration atomic load keeps LLVM from
+vectorizing it, and the bench is now at parity with Go
+([hale#2089](https://github.com/hale-lang/hale/issues/2089)). The same
+loop in a plain `fn` still vectorizes (2.3 ms). `form_vec_get` is the
+same story (3× ahead of Go through v0.32.7, parity now).
 
 `json_parse` is 200k parses of a 7-field market-data quote
 via the inlined `Type::from_json`. Hale **beats Go's
-encoding/json 2.34× and Python's json.loads 3.63×**, and
-sits ~21% behind V8's `JSON.parse` (0.824×).
+encoding/json 2.24× and Python's json.loads 3.51×**, and
+sits ~20% behind V8's `JSON.parse` (0.800×).
 
 `json_encode` is the other direction on the same record, 200k
 `Type::to_json` encodes. There Hale is behind: Go's encoding/json is
@@ -234,17 +293,17 @@ pipelines one-way publishes at about 1.7 ns each.
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `vec_amortized`     | 314.75 µs | 1.26 ms (4.01×) | 2.86 ms (9.08×) | 13.54 ms (43.0×) |
-| `fn_scratch_work`   | 60.31 µs | 432.83 µs (7.18×) | 923.43 µs (15.3×) | 2.61 ms (43.3×) |
-| `coord_with_churn`  | 36.87 µs | 2.04 µs (0.0554×) | 110.64 µs (3.00×) | 136.18 µs (3.69×) |
+| `vec_amortized`     | 335.49 µs | 1.23 ms (3.67×) | 2.93 ms (8.72×) | 13.60 ms (40.5×) |
+| `fn_scratch_work`   | 60.02 µs | 439.54 µs (7.32×) | 940.81 µs (15.7×) | 2.66 ms (44.3×) |
+| `coord_with_churn`  | 39.34 µs | 2.05 µs (0.0522×) | 113.96 µs (2.90×) | 138.04 µs (3.51×) |
 
 ### Per-iteration reclaim microbenches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `method_loop_alloc` | 229.22 ms | 126.69 ms (0.553×) | 103.58 ms (0.452×) | 458.08 ms (2.00×) |
+| `method_loop_alloc` | 229.72 ms | 124.83 ms (0.543×) | 104.09 ms (0.453×) | 460.63 ms (2.01×) |
 
-`method_loop_alloc` holds its memory flat (maxrss 5.1 MB) because the
+`method_loop_alloc` holds its memory flat (maxrss 4.5 MB) because the
 loop body gets an arena per iteration (hale-lang/hale#1765). The same
 loop under v0.29.0 peaked at about 317 MB and ran about 17% slower. The
 remaining gap to Go and Node is the cost of `to_string` plus the arena
@@ -255,22 +314,23 @@ accumulation.
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `tree_fanout`      | 24.05 µs | 8.00 µs (0.332×) | 223.72 µs (9.30×) | 571.52 µs (23.8×) |
-| `pipeline_3stage`  | 2.25 ms | 214.95 µs (0.0955×) | 1.42 ms (0.629×) | 6.91 ms (3.07×) |
+| `tree_fanout`      | 24.56 µs | 8.01 µs (0.326×) | 226.22 µs (9.21×) | 574.65 µs (23.4×) |
+| `pipeline_3stage`  | 2.23 ms | 214.93 µs (0.0966×) | 1.13 ms (0.506×) | 6.98 ms (3.14×) |
 
 ### Cross-pool / cache microbenches (F.32)
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `bus_dispatch_cross_pool` † | 6.26 ms | 6.08 ms (0.972×) | 38.70 ms (6.18×) | 81.47 ms (13.0×) |
-| `form_hashmap_false_sharing`  | 20.00 ms | 9.54 ms (0.477×) | 85.51 ms (4.27×) | 36.72 ms (1.84×) |
-| `form_hashmap_walk_large`     | 111.62 µs | 382.18 µs (3.42×) | 721.12 µs (6.46×) | 7.07 ms (63.3×) |
-| `bus_round_trip_cross_pool` ‡ | 154.60 ms | — | — | — |
+| `bus_dispatch_cross_pool` † | 5.70 ms | 6.11 ms (1.07×) | 38.95 ms (6.83×) | 84.52 ms (14.8×) |
+| `form_hashmap_false_sharing`  | 20.44 ms | 9.87 ms (0.483×) | 85.89 ms (4.20×) | 36.43 ms (1.78×) |
+| `form_hashmap_walk_large`     | 123.62 µs | 381.18 µs (3.08×) | 749.87 µs (6.07×) | 7.32 ms (59.2×) |
+| `bus_round_trip_cross_pool`   | 161.30 ms | — | — | — |
 
-† `bus_dispatch_cross_pool` is bimodal from run to run on this host:
-its median lands near 5.1 ms or near 6.2 ms (the baseline, a median of
-five runs, is 5.17 ms, with a 35% band). This snapshot caught the slow
-mode; in the fast one Hale is about 1.2× ahead of Go.
+† `bus_dispatch_cross_pool` has been bimodal from run to run on this
+host: its median lands near 5.1 ms or near 6.2 ms. The current baseline,
+a median of five runs, is 5.31 ms with an 8% band; this snapshot's
+5.70 ms puts Hale 1.07× ahead of Go, and in the fast mode it is about
+1.2× ahead.
 
 `form_hashmap_false_sharing` exercises the F.32-1γ-v2
 `sync = lockfree` discipline (cell-level CAS on the
@@ -278,7 +338,7 @@ steady-state hot path; `remove` via tombstones; transparent
 grow when load factor exceeds 0.6). When it shipped, lockfree
 closed the gap with Go's sync.Mutex map on this 2-core /
 cheap-payload bench from 1.66× (under α serialized) to 1.18×;
-on this snapshot Go is 2.1× ahead (0.475×).
+on this snapshot Go is 2.1× ahead (0.483×).
 The annotation chain shows the F.32-1 alternatives in
 order of measured perf on this hardware: γ-v2 (lockfree) >
 α (serialized) > β2-v2 (striped+rwlock). On higher-core-
@@ -340,13 +400,13 @@ pre-allocate their cap (~4.3 MB per pinned mailbox / cooperative pool at the
 default 8192) instead of growing — down-tunable via `LOTUS_BUS_QUEUE_CAP`.
 Re-baselined at the time under v0.9.0; `baselines.json` has since been
 re-baselined (its `hale_version` field names the binary the current
-medians came from — main e3240e17f, reporting 0.30.0, as of 2026-10-28).
+medians came from — v0.36.0, main 1e4fd190d, as of 2026-11-19).
 
 ### App benches
 
 | Bench | Hale | Go | Node | Python |
 |---|---:|---:|---:|---:|
-| `stream_aggregator`  | 446.16 µs | 229.10 µs (0.513×) | 1.77 ms (3.96×) | 31.19 ms (69.9×) |
+| `stream_aggregator`  | 474.77 µs | 233.11 µs (0.491×) | 1.57 ms (3.31×) | 30.93 ms (65.1×) |
 
 ### Cross-process SHM delivery (`xproc/`)
 
@@ -373,28 +433,37 @@ There are **two variants** (run both with `xproc/run.sh`):
   *copy-bound*: where a copy-based reader would eat a 4 KB memcpy per
   record, so it's where zero-copy read should pay off.
 
-Snapshots (AMD Ryzen 7 9800X3D / x86_64 / Linux 6.18, median of 20
+Snapshots (hale v0.36.0, main 1e4fd190d, 2026-11-19; AMD Ryzen 7
+9800X3D / x86_64 / Linux 6.18; `ITERS=20 xproc/run.sh`, median of 20
 runs):
 
 **small — N = 200 000, 16-byte records**
 
 | language | median | ratio_vs_hale |
 |---|---:|---:|
-| **Hale** — per-record handler | 10.80 ms | 1.00× |
-| **Hale** — `Drain<T>` batch | **2.29 ms** | **0.21×** |
-| Go | 2.61 ms | 0.24× |
-| Node | 10.30 ms | 0.95× † |
-| Python | 31.28 ms | 2.90× |
+| **Hale** — per-record handler | 12.31 ms | 1.00× |
+| **Hale** — `Drain<T>` batch | **2.80 ms** | **0.23×** |
+| Go | 3.20 ms | 0.26× |
+| Node | 10.28 ms | 0.84× † |
+| Python | 30.40 ms | 2.47× |
 
 **large — N = 20 000, ~4 KB records (reader sums whole payload)**
 
 | language | median | ratio_vs_hale |
 |---|---:|---:|
-| **Hale** — per-record handler | 33.98 ms | 1.00× |
-| **Hale** — `Drain<T>` batch | 34.36 ms | 1.01× |
-| Go | 17.63 ms | 0.52× |
-| Node | 106.06 ms | 3.12× † |
-| Python | 346.66 ms | 10.20× |
+| **Hale** — per-record handler | 19.22 ms | 1.00× |
+| **Hale** — `Drain<T>` batch | 20.84 ms | 1.08× |
+| Go | 17.82 ms | 0.93× |
+| Node | 103.60 ms | 5.39× † |
+| Python | 335.10 ms | 17.43× |
+
+The small per-record row is the noisiest here: its median moves
+between about 10 and 12.5 ms from one 10–20-run invocation to the next
+on an unchanged binary. The earlier snapshot of these tables (per-record
+10.80 / `Drain<T>` 2.29 ms small, 33.98 / 34.36 ms large) was taken
+before v0.32.7 and carried no version; v0.32.7 already measures
+12.55 / 2.80 ms and 18.20 / 20.51 ms, the same as v0.36.0 within noise,
+so the large-variant gain predates the range **Since v0.32.7** covers.
 
 **The `Drain<T>` batch consumer closes the dispatch gap — and on the
 small variant, Hale now wins.** A subscriber whose handler takes
@@ -413,22 +482,23 @@ fn on_batch(feed: Drain<TickPayload>) {
 The per-record handler dispatch (one call + one arena scratch *per
 record*) was the *entire* structural edge the bare-loop siblings had —
 the ring read itself was already zero-copy (verified below). Removing
-it takes the small / dispatch-bound reader from 10.80 ms to **2.29 ms:
-4.7× faster, and past Go's 2.61 ms.** That's the idiomatic Hale
+it takes the small / dispatch-bound reader from 12.31 ms to **2.80 ms:
+4.4× faster, and past Go's 3.20 ms.** That's the idiomatic Hale
 consumer — a declarative `subscribe` plus an inline loop, no hand-rolled
 mmap walk — so it's an apples-to-apples win on *both* ergonomics and raw
 throughput. (`hale_drain` in `xproc/run.sh`; the per-record row is kept
 for contrast.)
 
-On the **large / copy-bound** variant the batch form is a wash (1.01×):
-there the per-record cost is dominated by summing 512 fields, not by
-dispatch, so eliminating the call changes nothing and Go stays ~1.9×
-ahead. That remaining gap is now a *compute-codegen* question (Hale's
-512 field loads + adds vs Go's), **not** a delivery-model one —
-`Drain<T>` fixed the delivery model, which is all it was meant to do.
-The honest read: on dispatch-bound delivery Hale is now fastest; on
-compute-bound work over the payload there's a separate optimization gap
-to bare-loop Go that batching doesn't touch.
+On the **large / copy-bound** variant the batch form does not help
+(1.08×, a little slower): there the per-record cost is dominated by
+summing 512 fields, not by dispatch, so eliminating the call changes
+nothing. Go is 1.08× ahead of the per-record reader — it was ~1.9×
+ahead in the earlier snapshot — so what is left is a small
+*compute-codegen* question (Hale's 512 field loads + adds vs Go's),
+**not** a delivery-model one; `Drain<T>` fixed the delivery model,
+which is all it was meant to do. The honest read: on dispatch-bound
+delivery Hale is fastest; on compute-bound work over the payload it is
+within about 8% of bare-loop Go.
 
 **On ease and capability** (still true, now on top of the speed win):
 **Hale** gets you typed cross-process zero-copy delivery from a single
@@ -485,8 +555,8 @@ alike, since both read the same slot layout.) The takeaway across both
 variants: on **dispatch-bound** delivery the `Drain<T>` batch consumer
 makes idiomatic Hale the fastest sibling (past Go), erasing the
 bare-loop edge that per-record dispatch used to concede; on
-**compute-bound** work over a large payload a separate codegen gap to
-bare-loop Go remains (batching doesn't address it), and the array-field
+**compute-bound** work over a large payload Hale is within about 8% of
+bare-loop Go (batching doesn't address that), and the array-field
 layout gap is still a concrete thing to fix before the zero-copy story
 is complete.
 
@@ -576,36 +646,37 @@ Compare like with like: the same machine, idle, the same build profile.
 
 ### Results
 
-hale **main 1e4fd190d** (v0.36.0), 2026-11-19. AMD Ryzen 7 9800X3D,
+hale **v0.36.0** (main 1e4fd190d), 2026-11-19, the same day's full
+run as the grid. AMD Ryzen 7 9800X3D,
 8 cores / 16 threads, 31 GiB, Linux 6.18, otherwise idle. The median of
 the repeats (builds 3, HTTP 5), with the range across them;
 `baselines.json`'s `gates` holds the same rows.
 
 | Area | Measure | Median | Range |
 |---|---|---|---|
-| build | small program, cold | 5.94 s | 5.93 to 5.96 |
-| build | small program, warm, unchanged | 1.81 s | 1.81 to 1.82 |
-| build | small program, after a one-line edit | 1.81 s | 1.81 to 1.81 |
-| build | small program, cold, peak RSS | 214 MiB | 213 to 214 |
-| build | `dna/host`, cold | 20.78 s | 20.74 to 20.81 |
-| build | `dna/host`, warm, unchanged | 15.83 s | 15.79 to 15.87 |
-| build | `dna/host`, after a one-line edit | 15.87 s | 15.82 to 15.88 |
-| build | `dna/host`, cold, peak RSS | 1052 MiB | 1051 to 1052 |
-| http | 1 connection: requests/s | 46,670 | 46,407 to 47,105 |
+| build | small program, cold | 5.94 s | 5.93 to 6.08 |
+| build | small program, warm, unchanged | 1.81 s | 1.80 to 1.81 |
+| build | small program, after a one-line edit | 1.81 s | 1.80 to 1.82 |
+| build | small program, cold, peak RSS | 208 MiB | 208 to 208 |
+| build | `dna/host`, cold | 20.72 s | 20.72 to 20.85 |
+| build | `dna/host`, warm, unchanged | 15.85 s | 15.79 to 15.91 |
+| build | `dna/host`, after a one-line edit | 15.83 s | 15.80 to 15.87 |
+| build | `dna/host`, cold, peak RSS | 1051 MiB | 1051 to 1051 |
+| http | 1 connection: requests/s | 46,630 | 46,532 to 46,952 |
 | http | 1 connection: p50 / p99 | 20 / 28 µs | p99 27 to 28 |
-| http | 16 connections: requests/s | 80,930 | 80,416 to 81,337 |
-| http | 16 connections: p50 / p99 | 195 / 241 µs | p99 240 to 247 |
-| http | 64 connections: requests/s | 81,280 | 80,086 to 81,553 |
-| http | 64 connections: p50 / p99 | 778 / 861 µs | p99 858 to 904 |
+| http | 16 connections: requests/s | 81,620 | 80,976 to 81,764 |
+| http | 16 connections: p50 / p99 | 193 / 240 µs | p99 238 to 246 |
+| http | 64 connections: requests/s | 81,585 | 80,558 to 82,798 |
+| http | 64 connections: p50 / p99 | 774 / 870 µs | p99 837 to 890 |
 | http | errors / dropped attempts, every run | 0 / 0 | |
-| memory | server RSS: idle, at 10 s, at 120 s of load | 4.6, 4.6, 4.6 MiB | |
-| memory | RSS growth from 10 s to 120 s (9.7 M requests, 0 errors, 0 dropped) | 0.0 KiB/min (flat) | |
-| editor | small seed: open, to diagnostics | 86 ms | |
-| editor | small seed: edit, to diagnostics, p50 / p95 | 96 / 99 ms | 20 edits |
-| editor | small seed: server peak RSS | 91 MiB | |
-| editor | large seed (`dna/core`): open, to diagnostics | 729 ms | |
-| editor | large seed: edit, to diagnostics, p50 / p95 | 753 / 761 ms | 20 edits |
-| editor | large seed: server peak RSS | 306 MiB | |
+| memory | server RSS: idle, at 10 s, at 120 s of load | 4.7, 4.7, 4.7 MiB | |
+| memory | RSS growth from 10 s to 120 s (9.8 M requests, 0 errors, 0 dropped) | 0.0 KiB/min (flat) | |
+| editor | small seed: open, to diagnostics | 88 ms | |
+| editor | small seed: edit, to diagnostics, p50 / p95 | 97 / 100 ms | 20 edits |
+| editor | small seed: server peak RSS | 89 MiB | |
+| editor | large seed (`dna/core`): open, to diagnostics | 733 ms | |
+| editor | large seed: edit, to diagnostics, p50 / p95 | 749 / 759 ms | 20 edits |
+| editor | large seed: server peak RSS | 303 MiB | |
 
 ### What each measures
 
@@ -670,9 +741,12 @@ normally accompany.
 
 - **`loop_overhead`** — tight `acc ^= i` reduction over 100M iters
   (pid-seeded + printed so it can't fold to a constant). Under the
-  native-CPU + O3 defaults LLVM autovectorizes it to AVX-512, so it
-  now measures vectorized-reduction throughput (~10× vs Go's scalar
-  loop), not scalar loop overhead. No arena work.
+  native-CPU + O3 defaults LLVM autovectorized it to AVX-512 (~10× vs
+  Go's scalar loop through v0.32.7). Since hale#1874 the loop, being in
+  `fn main`, carries the drain latch on its back-edge, which keeps it
+  scalar: it now measures the scalar loop plus that latch, at parity
+  with Go ([hale#2089](https://github.com/hale-lang/hale/issues/2089)).
+  No arena work.
 - **`fn_call`** — `fn step(x) -> Int { return x * 2 + 1; }` called
   10M times: free-fn call overhead for a minimal *real* body. A free
   fn that allocates nothing skips its per-call scratch arena
@@ -729,8 +803,10 @@ allocate). Some still show overhead (`fn_call`,
 **lead** Go: after the `.get`/`.push`/`.set`/`.pop` inlines, the
 counted-loop bounds-check elimination (`for j in 0..v.len()`
 drops the per-read check Go still pays), and the native
-target-cpu + O3 defaults, `form_vec_push` is ~3.5× and
-`form_vec_get` ~3.1× *faster* than Go. (An earlier note here
+target-cpu + O3 defaults, `form_vec_push` is ~3.5× *faster* than Go,
+and `form_vec_get` was ~3.1× faster through v0.32.7 (at parity since
+hale#1874's drain latch keeps its read loop in `fn main` scalar;
+hale#2089). (An earlier note here
 claimed `form_vec_get` was "60× behind Go" — that was a
 benchmark bug: the Hale variant ran 25× more iterations than the
 `.go`/`.js`/`.py` variants, so the ratio compared different
