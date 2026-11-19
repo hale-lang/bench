@@ -1,130 +1,148 @@
 {
-  "updated_at": "2026-11-07T16:08:54Z",
-  "hale_version": "0.32.7",
+  "updated_at": "2026-11-19T12:54:49Z",
+  "hale_version": "0.36.0",
   "runs": 5,
   "iters": 21,
   "benches": {
     "bus_dispatch": {
       "kind": "micro",
-      "elapsed_ns": 173093,
-      "maxrss_kb": 4956,
-      "noise": 0.0126,
-      "drift_sigma": 0.0049,
-      "drift_range": 0.0113,
+      "elapsed_ns": 173334,
+      "maxrss_kb": 4420,
+      "noise": 0.0129,
+      "drift_sigma": 0.0037,
+      "drift_range": 0.0087,
       "runs": 5
     },
     "bus_dispatch_cross_pool": {
       "kind": "micro",
-      "elapsed_ns": 5173765,
-      "maxrss_kb": 10032,
-      "noise": 0.005,
-      "drift_sigma": 0.0961,
-      "drift_range": 0.2236,
+      "elapsed_ns": 5306844,
+      "maxrss_kb": 9736,
+      "noise": 0.0088,
+      "drift_sigma": 0.0211,
+      "drift_range": 0.0491,
       "runs": 5
     },
     "bus_dispatch_heap_payload": {
       "kind": "micro",
-      "elapsed_ns": 1992131,
-      "maxrss_kb": 9628,
-      "noise": 0.0135,
-      "drift_sigma": 0.0384,
-      "drift_range": 0.0894,
+      "elapsed_ns": 1945134,
+      "maxrss_kb": 9376,
+      "noise": 0.0116,
+      "drift_sigma": 0.0177,
+      "drift_range": 0.0412,
       "runs": 5
     },
     "bus_publish_shm_ring": {
       "kind": "micro",
-      "elapsed_ns": 1361162,
-      "maxrss_kb": 4900,
-      "noise": 0.0018,
-      "drift_sigma": 0.0009,
-      "drift_range": 0.0021,
+      "elapsed_ns": 1394325,
+      "maxrss_kb": 4424,
+      "noise": 0.0016,
+      "drift_sigma": 0.0011,
+      "drift_range": 0.0026,
+      "runs": 5
+    },
+    "bus_round_trip": {
+      "kind": "micro",
+      "elapsed_ns": 6874973,
+      "maxrss_kb": 4568,
+      "noise": 0.0029,
+      "drift_sigma": 0.0053,
+      "drift_range": 0.0124,
+      "runs": 5
+    },
+    "bus_round_trip_cross_pool": {
+      "kind": "micro",
+      "elapsed_ns": 159877815,
+      "maxrss_kb": 9732,
+      "noise": 0.0103,
+      "drift_sigma": 0.0106,
+      "drift_range": 0.0247,
       "runs": 5
     },
     "coord_with_churn": {
       "kind": "micro",
-      "elapsed_ns": 39213,
-      "maxrss_kb": 5040,
-      "noise": 0.0159,
-      "drift_sigma": 0.0451,
-      "drift_range": 0.1049,
+      "elapsed_ns": 39894,
+      "maxrss_kb": 4580,
+      "noise": 0.0157,
+      "drift_sigma": 0.0203,
+      "drift_range": 0.0471,
       "runs": 5
     },
     "field_alt_empty": {
       "kind": "micro",
-      "elapsed_ns": 49803746,
-      "maxrss_kb": 5036,
-      "noise": 0.0065,
-      "drift_sigma": 0.002,
-      "drift_range": 0.0047,
+      "elapsed_ns": 50017440,
+      "maxrss_kb": 4524,
+      "noise": 0.005,
+      "drift_sigma": 0.0043,
+      "drift_range": 0.01,
       "runs": 5
     },
     "field_alt_short": {
       "kind": "micro",
-      "elapsed_ns": 66808051,
-      "maxrss_kb": 5040,
-      "noise": 0.0068,
-      "drift_sigma": 0.0034,
-      "drift_range": 0.0078,
+      "elapsed_ns": 69245310,
+      "maxrss_kb": 4524,
+      "noise": 0.006,
+      "drift_sigma": 0.0029,
+      "drift_range": 0.0068,
       "runs": 5
     },
     "field_bytes_alt": {
       "kind": "micro",
-      "elapsed_ns": 52106558,
-      "maxrss_kb": 5016,
-      "noise": 0.0055,
-      "drift_sigma": 0.0026,
-      "drift_range": 0.0062,
+      "elapsed_ns": 53018096,
+      "maxrss_kb": 4520,
+      "noise": 0.0043,
+      "drift_sigma": 0.0031,
+      "drift_range": 0.0073,
       "runs": 5
     },
     "field_same_len": {
       "kind": "micro",
-      "elapsed_ns": 53616128,
-      "maxrss_kb": 5016,
-      "noise": 0.0065,
-      "drift_sigma": 0.008,
-      "drift_range": 0.0186,
+      "elapsed_ns": 54138669,
+      "maxrss_kb": 4516,
+      "noise": 0.0067,
+      "drift_sigma": 0.0061,
+      "drift_range": 0.0141,
       "runs": 5
     },
     "field_whole_struct": {
       "kind": "micro",
-      "elapsed_ns": 77331689,
-      "maxrss_kb": 5020,
-      "noise": 0.0049,
-      "drift_sigma": 0.0071,
-      "drift_range": 0.0166,
+      "elapsed_ns": 79361549,
+      "maxrss_kb": 4512,
+      "noise": 0.0046,
+      "drift_sigma": 0.011,
+      "drift_range": 0.0257,
       "runs": 5
     },
     "fn_call": {
       "kind": "micro",
-      "elapsed_ns": 11475076,
-      "maxrss_kb": 4948,
-      "noise": 0.0355,
-      "drift_sigma": 0.1046,
-      "drift_range": 0.2432,
+      "elapsed_ns": 11278891,
+      "maxrss_kb": 4456,
+      "noise": 0.0149,
+      "drift_sigma": 0.0211,
+      "drift_range": 0.049,
       "runs": 5
     },
     "fn_modular": {
       "kind": "micro",
-      "elapsed_ns": 17740530,
-      "maxrss_kb": 4944,
-      "noise": 0.0186,
-      "drift_sigma": 0.0257,
-      "drift_range": 0.0599,
+      "elapsed_ns": 17257840,
+      "maxrss_kb": 4456,
+      "noise": 0.0005,
+      "drift_sigma": 0.0007,
+      "drift_range": 0.0016,
       "runs": 5
     },
     "fn_scratch_work": {
       "kind": "micro",
-      "elapsed_ns": 60392,
-      "maxrss_kb": 4900,
-      "noise": 0.0118,
-      "drift_sigma": 0.0062,
-      "drift_range": 0.0145,
+      "elapsed_ns": 59651,
+      "maxrss_kb": 4428,
+      "noise": 0.0083,
+      "drift_sigma": 0.0026,
+      "drift_range": 0.0061,
       "runs": 5
     },
     "form_chunk_hint_multi_locus": {
       "kind": "micro",
-      "elapsed_ns": 201689546,
-      "maxrss_kb": 10056,
+      "elapsed_ns": 201650072,
+      "maxrss_kb": 9748,
       "noise": 0.0002,
       "drift_sigma": 0.0001,
       "drift_range": 0.0002,
@@ -132,184 +150,160 @@
     },
     "form_hashmap_false_sharing": {
       "kind": "micro",
-      "elapsed_ns": 20159519,
-      "maxrss_kb": 42796,
-      "noise": 0.0055,
-      "drift_sigma": 0.0071,
-      "drift_range": 0.0164,
+      "elapsed_ns": 20534522,
+      "maxrss_kb": 42452,
+      "noise": 0.0088,
+      "drift_sigma": 0.0086,
+      "drift_range": 0.0201,
       "runs": 5
     },
     "form_hashmap_get": {
       "kind": "micro",
-      "elapsed_ns": 1158173,
-      "maxrss_kb": 14296,
-      "noise": 0.0307,
-      "drift_sigma": 0.0111,
-      "drift_range": 0.0257,
+      "elapsed_ns": 1166118,
+      "maxrss_kb": 14088,
+      "noise": 0.0385,
+      "drift_sigma": 0.0237,
+      "drift_range": 0.055,
       "runs": 5
     },
     "form_hashmap_set": {
       "kind": "micro",
-      "elapsed_ns": 37795655,
-      "maxrss_kb": 81508,
-      "noise": 0.0157,
-      "drift_sigma": 0.0267,
-      "drift_range": 0.062,
+      "elapsed_ns": 39478732,
+      "maxrss_kb": 81344,
+      "noise": 0.0155,
+      "drift_sigma": 0.0097,
+      "drift_range": 0.0225,
       "runs": 5
     },
     "form_hashmap_walk_large": {
       "kind": "micro",
-      "elapsed_ns": 114464,
-      "maxrss_kb": 14388,
-      "noise": 0.0096,
-      "drift_sigma": 0.0124,
-      "drift_range": 0.0288,
+      "elapsed_ns": 123100,
+      "maxrss_kb": 14248,
+      "noise": 0.0204,
+      "drift_sigma": 0.0158,
+      "drift_range": 0.0368,
       "runs": 5
     },
     "form_vec_get": {
       "kind": "micro",
-      "elapsed_ns": 13275,
-      "maxrss_kb": 6296,
-      "noise": 0.0353,
-      "drift_sigma": 0.0232,
-      "drift_range": 0.0539,
+      "elapsed_ns": 42048,
+      "maxrss_kb": 6036,
+      "noise": 0.0191,
+      "drift_sigma": 0.0165,
+      "drift_range": 0.0383,
       "runs": 5
     },
     "form_vec_push": {
       "kind": "micro",
-      "elapsed_ns": 611613,
-      "maxrss_kb": 8736,
-      "noise": 0.0338,
-      "drift_sigma": 0.052,
-      "drift_range": 0.1211,
+      "elapsed_ns": 690200,
+      "maxrss_kb": 8336,
+      "noise": 0.027,
+      "drift_sigma": 0.0408,
+      "drift_range": 0.0949,
+      "runs": 5
+    },
+    "json_encode": {
+      "kind": "micro",
+      "elapsed_ns": 63761376,
+      "maxrss_kb": 73224,
+      "noise": 0.0044,
+      "drift_sigma": 0.0119,
+      "drift_range": 0.0276,
       "runs": 5
     },
     "json_parse": {
       "kind": "micro",
-      "elapsed_ns": 61742068,
-      "maxrss_kb": 29868,
-      "noise": 0.0046,
-      "drift_sigma": 0.0023,
-      "drift_range": 0.0053,
+      "elapsed_ns": 61332218,
+      "maxrss_kb": 29460,
+      "noise": 0.0026,
+      "drift_sigma": 0.0017,
+      "drift_range": 0.004,
       "runs": 5
     },
     "locus_instantiation": {
       "kind": "micro",
-      "elapsed_ns": 1771790,
-      "maxrss_kb": 4960,
-      "noise": 0.0132,
-      "drift_sigma": 0.0326,
-      "drift_range": 0.0759,
+      "elapsed_ns": 1768113,
+      "maxrss_kb": 4476,
+      "noise": 0.0157,
+      "drift_sigma": 0.03,
+      "drift_range": 0.0698,
       "runs": 5
     },
     "loop_overhead": {
       "kind": "micro",
-      "elapsed_ns": 1861698,
-      "maxrss_kb": 4956,
-      "noise": 0.0252,
-      "drift_sigma": 0.0241,
-      "drift_range": 0.0562,
+      "elapsed_ns": 19990665,
+      "maxrss_kb": 4420,
+      "noise": 0.0013,
+      "drift_sigma": 0.0012,
+      "drift_range": 0.0027,
       "runs": 5
     },
     "method_loop_alloc": {
       "kind": "micro",
-      "elapsed_ns": 228694874,
-      "maxrss_kb": 5032,
-      "noise": 0.0033,
-      "drift_sigma": 0.0043,
-      "drift_range": 0.0099,
+      "elapsed_ns": 229205890,
+      "maxrss_kb": 4500,
+      "noise": 0.003,
+      "drift_sigma": 0.0029,
+      "drift_range": 0.0067,
       "runs": 5
     },
     "pipeline_3stage": {
       "kind": "micro",
-      "elapsed_ns": 2148965,
-      "maxrss_kb": 9644,
-      "noise": 0.0128,
-      "drift_sigma": 0.0215,
-      "drift_range": 0.05,
+      "elapsed_ns": 2169343,
+      "maxrss_kb": 9232,
+      "noise": 0.0101,
+      "drift_sigma": 0.0113,
+      "drift_range": 0.0262,
       "runs": 5
     },
     "stream_aggregator": {
       "kind": "app",
-      "elapsed_ns": 435674,
-      "maxrss_kb": 4980,
-      "noise": 0.0091,
-      "drift_sigma": 0.0156,
-      "drift_range": 0.0363,
+      "elapsed_ns": 466121,
+      "maxrss_kb": 4512,
+      "noise": 0.0064,
+      "drift_sigma": 0.0056,
+      "drift_range": 0.013,
       "runs": 5
     },
     "tree_fanout": {
       "kind": "micro",
-      "elapsed_ns": 22963,
-      "maxrss_kb": 5040,
-      "noise": 0.0339,
-      "drift_sigma": 0.0727,
-      "drift_range": 0.1692,
+      "elapsed_ns": 23965,
+      "maxrss_kb": 4552,
+      "noise": 0.03,
+      "drift_sigma": 0.0082,
+      "drift_range": 0.019,
       "runs": 5
     },
     "vec_amortized": {
       "kind": "micro",
-      "elapsed_ns": 298878,
-      "maxrss_kb": 6296,
-      "noise": 0.0297,
-      "drift_sigma": 0.0973,
-      "drift_range": 0.2262,
+      "elapsed_ns": 313976,
+      "maxrss_kb": 6032,
+      "noise": 0.02,
+      "drift_sigma": 0.0262,
+      "drift_range": 0.0609,
       "runs": 5
     },
     "vec_queue_pop": {
       "kind": "micro",
-      "elapsed_ns": 50181772,
-      "maxrss_kb": 5020,
-      "noise": 0.0052,
-      "drift_sigma": 0.0043,
-      "drift_range": 0.0101,
+      "elapsed_ns": 50130792,
+      "maxrss_kb": 4516,
+      "noise": 0.003,
+      "drift_sigma": 0.0017,
+      "drift_range": 0.0039,
       "runs": 5
     },
     "vec_set_bytes": {
       "kind": "micro",
-      "elapsed_ns": 29662321,
-      "maxrss_kb": 5008,
-      "noise": 0.0044,
-      "drift_sigma": 0.0052,
-      "drift_range": 0.0121,
+      "elapsed_ns": 29973114,
+      "maxrss_kb": 4504,
+      "noise": 0.0043,
+      "drift_sigma": 0.0039,
+      "drift_range": 0.009,
       "runs": 5
-    },
-    "bus_round_trip": {
-      "kind": "micro",
-      "elapsed_ns": 6883065,
-      "maxrss_kb": 4660,
-      "noise": 0.0057,
-      "drift_sigma": 0.0016,
-      "drift_range": 0.0036,
-      "runs": 5,
-      "hale_version": "0.36.0",
-      "updated_at": "2026-11-19T11:18:43Z"
-    },
-    "bus_round_trip_cross_pool": {
-      "kind": "micro",
-      "elapsed_ns": 159476130,
-      "maxrss_kb": 9756,
-      "noise": 0.0122,
-      "drift_sigma": 0.0098,
-      "drift_range": 0.0228,
-      "runs": 5,
-      "hale_version": "0.36.0",
-      "updated_at": "2026-11-19T11:18:43Z"
-    },
-    "json_encode": {
-      "kind": "micro",
-      "elapsed_ns": 63674075,
-      "maxrss_kb": 73332,
-      "noise": 0.004,
-      "drift_sigma": 0.0049,
-      "drift_range": 0.0114,
-      "runs": 5,
-      "hale_version": "0.36.0",
-      "updated_at": "2026-11-19T11:18:43Z"
     }
   },
   "gates": {
-    "updated_at": "2026-11-19T11:18:43Z",
+    "updated_at": "2026-11-19T12:42:53Z",
     "hale_version": "0.36.0",
     "hale_commit": "1e4fd190d",
     "machine": {
@@ -328,84 +322,84 @@
         "unit": "s",
         "median": 5.94,
         "min": 5.93,
-        "max": 5.96
+        "max": 6.08
       },
       {
         "area": "build",
         "measure": "crates/hale-codegen/tests/fixtures/examples/92-build-an-api, warm, unchanged",
         "unit": "s",
         "median": 1.81,
-        "min": 1.81,
-        "max": 1.82
+        "min": 1.8,
+        "max": 1.81
       },
       {
         "area": "build",
         "measure": "crates/hale-codegen/tests/fixtures/examples/92-build-an-api, after a one-line edit",
         "unit": "s",
         "median": 1.81,
-        "min": 1.81,
-        "max": 1.81
+        "min": 1.8,
+        "max": 1.82
       },
       {
         "area": "build",
         "measure": "crates/hale-codegen/tests/fixtures/examples/92-build-an-api, cold, peak RSS",
         "unit": "MiB",
-        "median": 214,
-        "min": 213,
-        "max": 214
+        "median": 208,
+        "min": 208,
+        "max": 208
       },
       {
         "area": "build",
         "measure": "dna/host, cold",
         "unit": "s",
-        "median": 20.78,
-        "min": 20.74,
-        "max": 20.81
+        "median": 20.72,
+        "min": 20.72,
+        "max": 20.85
       },
       {
         "area": "build",
         "measure": "dna/host, warm, unchanged",
         "unit": "s",
-        "median": 15.83,
+        "median": 15.85,
         "min": 15.79,
-        "max": 15.87
+        "max": 15.91
       },
       {
         "area": "build",
         "measure": "dna/host, after a one-line edit",
         "unit": "s",
-        "median": 15.87,
-        "min": 15.82,
-        "max": 15.88
+        "median": 15.83,
+        "min": 15.8,
+        "max": 15.87
       },
       {
         "area": "build",
         "measure": "dna/host, cold, peak RSS",
         "unit": "MiB",
-        "median": 1052,
+        "median": 1051,
         "min": 1051,
-        "max": 1052
+        "max": 1051
       },
       {
         "area": "http",
         "measure": "1 conn, requests/s",
         "unit": "req/s",
-        "median": 46670,
-        "min": 46407,
-        "max": 47105
+        "median": 46630,
+        "min": 46532,
+        "max": 46952
       },
       {
         "area": "http",
         "measure": "1 conn, p50",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 20,
         "min": 20,
-        "max": 21
+        "max": 20
       },
       {
         "area": "http",
         "measure": "1 conn, p99",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 28,
         "min": 27,
         "max": 28
@@ -420,25 +414,25 @@
         "area": "http",
         "measure": "16 conn, requests/s",
         "unit": "req/s",
-        "median": 80930,
-        "min": 80416,
-        "max": 81337
+        "median": 81620,
+        "min": 80976,
+        "max": 81764
       },
       {
         "area": "http",
         "measure": "16 conn, p50",
-        "unit": "µs",
-        "median": 195,
-        "min": 194,
-        "max": 196
+        "unit": "\u00b5s",
+        "median": 193,
+        "min": 193,
+        "max": 194
       },
       {
         "area": "http",
         "measure": "16 conn, p99",
-        "unit": "µs",
-        "median": 241,
-        "min": 240,
-        "max": 247
+        "unit": "\u00b5s",
+        "median": 240,
+        "min": 238,
+        "max": 246
       },
       {
         "area": "http",
@@ -450,25 +444,25 @@
         "area": "http",
         "measure": "64 conn, requests/s",
         "unit": "req/s",
-        "median": 81280,
-        "min": 80086,
-        "max": 81553
+        "median": 81585,
+        "min": 80558,
+        "max": 82798
       },
       {
         "area": "http",
         "measure": "64 conn, p50",
-        "unit": "µs",
-        "median": 778,
-        "min": 772,
-        "max": 792
+        "unit": "\u00b5s",
+        "median": 774,
+        "min": 766,
+        "max": 789
       },
       {
         "area": "http",
         "measure": "64 conn, p99",
-        "unit": "µs",
-        "median": 861,
-        "min": 858,
-        "max": 904
+        "unit": "\u00b5s",
+        "median": 870,
+        "min": 837,
+        "max": 890
       },
       {
         "area": "http",
@@ -480,23 +474,23 @@
         "area": "memory",
         "measure": "server RSS idle",
         "unit": "MiB",
-        "median": 4.6
+        "median": 4.7
       },
       {
         "area": "memory",
         "measure": "server RSS at 10 s",
         "unit": "MiB",
-        "median": 4.6
+        "median": 4.7
       },
       {
         "area": "memory",
         "measure": "server RSS at 120 s",
         "unit": "MiB",
-        "median": 4.6
+        "median": 4.7
       },
       {
         "area": "memory",
-        "measure": "RSS growth after 10 s (9708012 requests, 0 errors, 0 dropped)",
+        "measure": "RSS growth after 10 s (9770639 requests, 0 errors, 0 dropped)",
         "unit": "KiB/min",
         "median": 0.0
       },
@@ -504,49 +498,49 @@
         "area": "editor",
         "measure": "small seed (crates/hale-codegen/tests/fixtures/examples/92-build-an-api/main.hl): open to diagnostics",
         "unit": "ms",
-        "median": 86.1
+        "median": 87.7
       },
       {
         "area": "editor",
         "measure": "small seed: edit to diagnostics, p50",
         "unit": "ms",
-        "median": 96.2
+        "median": 96.5
       },
       {
         "area": "editor",
         "measure": "small seed: edit to diagnostics, p95",
         "unit": "ms",
-        "median": 99.1
+        "median": 99.9
       },
       {
         "area": "editor",
         "measure": "small seed: server peak RSS",
         "unit": "MiB",
-        "median": 90.5
+        "median": 89.2
       },
       {
         "area": "editor",
         "measure": "large seed (dna/core/assembly.hl): open to diagnostics",
         "unit": "ms",
-        "median": 729.2
+        "median": 733.1
       },
       {
         "area": "editor",
         "measure": "large seed: edit to diagnostics, p50",
         "unit": "ms",
-        "median": 752.7
+        "median": 749.2
       },
       {
         "area": "editor",
         "measure": "large seed: edit to diagnostics, p95",
         "unit": "ms",
-        "median": 761.3
+        "median": 758.9
       },
       {
         "area": "editor",
         "measure": "large seed: server peak RSS",
         "unit": "MiB",
-        "median": 305.6
+        "median": 302.6
       }
     ]
   }
