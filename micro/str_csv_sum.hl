@@ -1,0 +1,33 @@
+// str_csv_sum — `lines` as a `for` source, `split` as a chain.
+//
+// A 1,000-row CSV of eight integer fields is built once, outside the
+// timed region. The timed loop sums every field 100 times:
+// `for line in lines(csv)`, then `split(line, ",").map(parse_int(it)
+// or 0).sum()` per row — 800k fields split and parsed.
+//
+// Siblings parse the same text: Go strings.Split + strconv.Atoi, JS
+// split + Number, Python split + int, Rust split + parse, C a
+// hand-written scan with strtol.
+
+fn main() {
+    let mut csv = "";
+    let mut i = 0;
+    while i < 1000 {
+        csv = csv + f"{i},17,4,250,9,33,1024,{i % 7}\n";
+        i = i + 1;
+    }
+    let rounds = 100;
+    let t0 = std::time::monotonic();
+    let mut total = 0;
+    let mut r = 0;
+    while r < rounds {
+        for line in std::str::lines(csv) {
+            total = total + std::str::split(line, ",").map(std::str::parse_int(it) or 0).sum();
+        }
+        r = r + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("rounds="); println(rounds);
+    print("total="); println(total);
+    print("elapsed_ns="); println(t1 - t0);
+}

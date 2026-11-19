@@ -1,0 +1,37 @@
+// str_match — a string `match` against 16 literal arms.
+//
+// 2M matches of a word drawn in turn from 17 (the 16 arm literals and
+// one that falls through to `_`), each arm answering an Int that is
+// summed. Measures how a string match dispatches: a chain of
+// comparisons, or something better.
+//
+// Siblings: Go and JS `switch`, Python `match`, Rust `match` on &str,
+// C an `strcmp` chain (C has no string switch).
+
+fn arm(w: String) -> Int {
+    return match w {
+        "alpha" -> 1, "bravo" -> 2, "charlie" -> 3, "delta" -> 4,
+        "echo" -> 5, "foxtrot" -> 6, "golf" -> 7, "hotel" -> 8,
+        "india" -> 9, "juliett" -> 10, "kilo" -> 11, "lima" -> 12,
+        "mike" -> 13, "november" -> 14, "oscar" -> 15, "papa" -> 16,
+        _ -> 0,
+    };
+}
+
+fn main() {
+    let words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot",
+        "golf", "hotel", "india", "juliett", "kilo", "lima", "mike",
+        "november", "oscar", "papa", "quebec"];
+    let iters = 2000000;
+    let t0 = std::time::monotonic();
+    let mut sum = 0;
+    let mut i = 0;
+    while i < iters {
+        sum = sum + arm(words[i % 17]);
+        i = i + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("iters="); println(iters);
+    print("sum="); println(sum);
+    print("elapsed_ns="); println(t1 - t0);
+}
