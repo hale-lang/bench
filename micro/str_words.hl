@@ -1,0 +1,34 @@
+// str_words — `std::str::words` as a `for` source.
+//
+// A ~10 KB text (a 51-byte sentence 200 times, 2,000 words) is built
+// once, outside the timed region. The timed loop walks its words 500
+// times and counts those longer than three bytes: 1M words split and
+// measured. `words` yields views into the text, so the loop should
+// allocate nothing per word.
+//
+// Pairs with str_words_chain.hl (the same count as a chain). Siblings
+// split the same way: Go strings.Fields, JS split(/\s+/), Python
+// str.split(), Rust split_whitespace, C a hand-written whitespace scan.
+
+fn main() {
+    let mut text = "";
+    let mut i = 0;
+    while i < 200 {
+        text = text + "the quick brown fox jumps over a lazy dog and runs ";
+        i = i + 1;
+    }
+    let rounds = 500;
+    let t0 = std::time::monotonic();
+    let mut n = 0;
+    let mut r = 0;
+    while r < rounds {
+        for w in std::str::words(text) {
+            if len(w) > 3 { n = n + 1; }
+        }
+        r = r + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("rounds="); println(rounds);
+    print("count="); println(n);
+    print("elapsed_ns="); println(t1 - t0);
+}

@@ -15,6 +15,20 @@
 #   lsp     gates/lsp_latency.py driving `hale lsp`: open-to-diagnostics
 #           and edit-to-diagnostics on a small seed and a large one, and
 #           the server's peak RSS.
+#   api     gates/rpc_serve.hl, one @rpc method served over unix::Rpc,
+#           under gates/rpcload.rs (closed loop, JSON-line calls): calls/s,
+#           p50 and p99 at 1 and 16 connections.
+#   hub     gates/hub_serve.hl, a ws::Hub, fanning a topic out to 1, 16
+#           and 64 websocket clients (gates/wsload.rs): deliveries/s for a
+#           burst of 10,000 ticks, and per-delivery latency with ticks
+#           1 ms apart.
+#   startup binary size of the three servers, and spawn to first
+#           answered request for http_serve.
+#   pg      gates/pq_bench.hl, the pure-Hale `pq` client on a pool, against
+#           a throwaway postgres:16 container this script starts and
+#           removes by name (needs docker; skipped, and said so, without):
+#           SELECT 1, a point lookup, and a one-INSERT transaction with
+#           the commit flushed and with it asynchronous.
 #
 # It MEASURES ONLY. There are no tolerance bands here and no number
 # fails the run: these measures are recorded so that v1 targets can be
@@ -23,12 +37,13 @@
 # build or run.
 #
 # Usage:
-#   gates/run.sh                      # all four, ~12 min
-#   gates/run.sh --only=build,lsp     # a subset of build,http,memory,lsp
-#   gates/run.sh --reps=N             # repeats of each http measure (default 5)
+#   gates/run.sh                      # all of them, ~16 min
+#   gates/run.sh --only=build,lsp     # a subset of build,http,memory,lsp,api,hub,startup,pg
+#   gates/run.sh --reps=N             # repeats of each http, api and hub measure (default 5; pg 3)
 #   gates/run.sh --build-reps=N       # repeats of each build measure (default 3)
 #   gates/run.sh --memory-seconds=N   # the memory run's length (default 120)
 #   gates/run.sh --record             # also write the medians to baselines.json's "gates"
+#                                     # (replacing only the areas this run measured)
 #   gates/run.sh --json               # quieter; JSON-only stdout
 #
 # The hale binary resolves as run.sh's does (HALE_BIN, then
@@ -38,7 +53,7 @@
 # checkout is only read: builds run on a copy in a temporary directory.
 #
 # Needs jq, /usr/bin/time, python3 (the LSP client and a free port) and
-# rustc (the load generator), all of them stdlib-only.
+# rustc (the load generators), all of them stdlib-only; docker for pg.
 
 set -euo pipefail
 
@@ -72,7 +87,7 @@ if [[ -z "${HALE_SRC:-}" ]]; then
 fi
 HALE_SRC="$(cd "$HALE_SRC" 2>/dev/null && pwd)" || { echo "gates/run.sh: HALE_SRC is not a directory" >&2; exit 1; }
 
-ONLY="build,http,memory,lsp"
+ONLY="build,http,memory,lsp,api,hub,startup,pg"
 REPS=5
 BUILD_REPS=3
 MEMORY_SECONDS=120
@@ -95,7 +110,7 @@ log() { [ "$JSON_ONLY" -eq 1 ] || echo "$@" >&2; }
 command -v jq >/dev/null || { echo "jq not found on PATH" >&2; exit 2; }
 command -v /usr/bin/time >/dev/null || { echo "/usr/bin/time not found" >&2; exit 2; }
 command -v python3 >/dev/null || { echo "python3 not found on PATH" >&2; exit 2; }
-if wants http || wants memory; then
+if wants http || wants memory || wants api || wants hub || wants startup; then
     command -v rustc >/dev/null || { echo "rustc not found on PATH (it builds gates/httpload.rs)" >&2; exit 2; }
 fi
 
@@ -107,8 +122,10 @@ LSP_LARGE="dna/core/assembly.hl"
 
 WORK="$(mktemp -d)"
 SERVER_PID=""
+PG_NAME=""
 cleanup() {
     if [ -n "$SERVER_PID" ]; then kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; fi
+    if [ -n "$PG_NAME" ]; then docker rm -f -v "$PG_NAME" >/dev/null 2>&1 || true; fi
     rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -285,6 +302,129 @@ bench_lsp() {
     echo "$out"
 }
 
+# ---- api: @rpc over a unix socket ------------------------------------------------
+
+build_tool() {  # $1 = gates/<name>.rs
+    [ -x "$WORK/$1" ] || rustc -O --edition 2021 "$GATES_DIR/$1.rs" -o "$WORK/$1"
+}
+
+build_hl() {  # $1 = gates/<name>.hl
+    [ -x "$WORK/$1" ] || timed env HALE_SKIP_STALE_CHECK=1 "$HALE" build "$GATES_DIR/$1.hl" --target-cpu native -o "$WORK/$1" >/dev/null
+}
+
+bench_api() {
+    log "[api] building gates/rpc_serve.hl and gates/rpcload.rs"
+    build_hl rpc_serve; build_tool rpcload
+    local out="{}" c r runs sock="$WORK/rpc.sock" i
+    for c in 1 16; do
+        runs="[]"
+        for ((r = 1; r <= REPS; r++)); do
+            log "[api/$c] run $r/$REPS"
+            rm -f "$sock"
+            "$WORK/rpc_serve" "$sock" >/dev/null 2>&1 &
+            SERVER_PID=$!
+            for ((i = 0; i < 400; i++)); do [ -S "$sock" ] && break; sleep 0.05; done
+            runs=$(jq --argjson x "$("$WORK/rpcload" --path "$sock" --conns "$c" --duration 10 --warmup 2)" '. + [$x]' <<<"$runs")
+            stop_server
+        done
+        out=$(jq --arg k "conns_$c" --argjson runs "$runs" "$STATS"' . + {($k): {
+            rps: ($runs | map(.rps) | stats), p50_us: ($runs | map(.p50_us) | stats),
+            p99_us: ($runs | map(.p99_us) | stats),
+            errors: ($runs | map(.errors) | add), dropped: ($runs | map(.dropped) | add)}}' <<<"$out")
+    done
+    echo "$out"
+}
+
+# ---- hub: ws::Hub fan-out ----------------------------------------------------------
+
+bench_hub() {
+    log "[hub] building gates/hub_serve.hl and gates/wsload.rs"
+    build_hl hub_serve; build_tool wsload
+    local out="{}" c r runs mode m i ctl="$WORK/ctl"
+    mkdir -p "$ctl"
+    for mode in burst paced; do
+        local clients="1 16 64" msgs=10000 flag=""
+        if [ "$mode" = paced ]; then clients="1 64"; msgs=500; flag="--pace"; fi
+        for c in $clients; do
+            runs="[]"
+            for ((r = 1; r <= REPS; r++)); do
+                log "[hub/$mode/$c] run $r/$REPS"
+                rm -f "$ctl/cmd"
+                PORT=$(free_port)
+                "$WORK/hub_serve" "$PORT" "$ctl" >/dev/null 2>&1 &
+                SERVER_PID=$!
+                for ((i = 0; i < 400; i++)); do
+                    if (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; then break; fi
+                    sleep 0.05
+                done
+                runs=$(jq --argjson x "$("$WORK/wsload" --addr "127.0.0.1:$PORT" --clients "$c" --messages "$msgs" --ctl "$ctl" $flag)" '. + [$x]' <<<"$runs")
+                echo stop >"$ctl/cmd"
+                stop_server
+            done
+            out=$(jq --arg k "${mode}_$c" --argjson runs "$runs" "$STATS"' . + {($k): {
+                messages: $runs[0].messages, clients: $runs[0].clients,
+                deliveries_per_s: ($runs | map(.deliveries_per_s) | stats),
+                p50_us: ($runs | map(.p50_us) | stats), p99_us: ($runs | map(.p99_us) | stats),
+                dropped: ($runs | map(.dropped) | add), refused: ($runs | map(.refused_upgrades) | add)}}' <<<"$out")
+        done
+    done
+    echo "$out"
+}
+
+# ---- startup -----------------------------------------------------------------------
+
+bench_startup() {
+    build_server; build_hl rpc_serve; build_hl hub_serve
+    log "[startup] spawn to first answer, 11 runs"
+    local runs=() r
+    for ((r = 1; r <= 11; r++)); do
+        runs+=("$("$WORK/httpload" --startup "$WORK/http_serve" | jq .startup_us)")
+    done
+    jq -n --argjson s "$(printf '%s\n' "${runs[@]}" | jq -s .)" \
+        --argjson h "$(stat -c %s "$WORK/http_serve")" --argjson p "$(stat -c %s "$WORK/rpc_serve")" \
+        --argjson u "$(stat -c %s "$WORK/hub_serve")" \
+        "$STATS"'{first_answer_us: ($s | stats), size_bytes: {http_serve: $h, rpc_serve: $p, hub_serve: $u}}'
+}
+
+# ---- pg: pq on a pool, against a throwaway postgres ----------------------------------
+
+bench_pg() {
+    if ! command -v docker >/dev/null || ! docker info >/dev/null 2>&1; then
+        log "[pg] skipped: no usable docker"
+        echo '{"skipped": "no usable docker"}'
+        return 0
+    fi
+    log "[pg] building gates/pq_bench.hl with the tree's pond/pq"
+    local dir="$WORK/pg" r i runs="[]"
+    mkdir -p "$dir/pond"
+    cp -r "$HALE_SRC/dna/core/pond/pq" "$HALE_SRC/dna/core/pond/db" "$dir/pond/"
+    cp "$GATES_DIR/pq_bench.hl" "$dir/"
+    timed env HALE_SKIP_STALE_CHECK=1 "$HALE" build "$dir/pq_bench.hl" --target-cpu native -o "$dir/pq_bench" >/dev/null
+    PG_NAME="hale-bench-pg-$$"
+    PORT=$(free_port)
+    log "[pg] starting $PG_NAME (postgres:16) on 127.0.0.1:$PORT"
+    docker run -d --rm --name "$PG_NAME" -e POSTGRES_USER=bench -e POSTGRES_PASSWORD=bench \
+        -e POSTGRES_DB=bench -p "127.0.0.1:$PORT:5432" postgres:16 >/dev/null
+    for ((i = 0; i < 120; i++)); do
+        docker exec "$PG_NAME" pg_isready -U bench -h 127.0.0.1 >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+    sleep 1
+    for ((r = 1; r <= 3; r++)); do
+        log "[pg] run $r/3"
+        runs=$(jq --argjson x "$("$dir/pq_bench" "$PORT" 20000 | awk '
+            { name = $1; for (i = 2; i <= NF; i++) { split($i, kv, "="); v[name, kv[1]] = kv[2] } names[++k] = name }
+            END { printf "{"; for (j = 1; j <= k; j++) { n = names[j]; printf "%s\"%s\": {\"n\": %s, \"ok\": %s, \"us_per_op\": %.1f}", (j > 1 ? ", " : ""), n, v[n, "n"], v[n, "ok"], v[n, "ns_per_op"] / 1000 } printf "}\n" }')" \
+            '. + [$x]' <<<"$runs")
+    done
+    docker rm -f -v "$PG_NAME" >/dev/null 2>&1 || true
+    PG_NAME=""
+    jq "$STATS"' . as $runs | ($runs[0] | keys) as $ks
+        | reduce $ks[] as $k ({}; . + {($k): {us_per_op: ($runs | map(.[$k].us_per_op) | stats),
+              n: $runs[0][$k].n, failed: ($runs | map(.[$k].n - .[$k].ok) | add)}})
+        | . + {image: "postgres:16", pool_size: 2}' <<<"$runs"
+}
+
 # ---- run and report ------------------------------------------------------------
 
 report=$(jq -n --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg v "$hale_version" --arg c "$hale_commit" \
@@ -293,7 +433,7 @@ report=$(jq -n --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg v "$hale_version" 
     '{generated_at: $t, hale_version: $v, hale_commit: $c,
       machine: {cpu: $cpu, cores: $cores, threads: $threads, mem_gib: $mem, kernel: $k},
       reps: $reps, build_reps: $breps}')
-for m in build http memory lsp; do
+for m in build http memory lsp api hub startup pg; do
     wants "$m" || continue
     # Into a file, not $(...): a command substitution is a subshell, and
     # the server it starts would escape the EXIT trap on a failure.
@@ -329,16 +469,39 @@ FLAT='
         one("editor"; "\($n) (\($l.file)): open to diagnostics"; $l.open_done_ms; "ms"),
         one("editor"; "\($n): edit to diagnostics, p50"; $l.edit_done_ms_p50; "ms"),
         one("editor"; "\($n): edit to diagnostics, p95"; $l.edit_done_ms_p95; "ms"),
-        one("editor"; "\($n): server peak RSS"; $l.peak_rss_mib; "MiB"))
+        one("editor"; "\($n): server peak RSS"; $l.peak_rss_mib; "MiB")),
+    (.api // {} | to_entries[] | .value as $h | (.key | ltrimstr("conns_")) as $c |
+        row("api"; "unix rpc, \($c) conn, calls/s"; $h.rps; "calls/s"),
+        row("api"; "unix rpc, \($c) conn, p50"; $h.p50_us; "µs"),
+        row("api"; "unix rpc, \($c) conn, p99"; $h.p99_us; "µs"),
+        one("api"; "unix rpc, \($c) conn, errors / dropped, all runs"; "\($h.errors) / \($h.dropped)"; "")),
+    (.hub // {} | to_entries[] | .value as $h | (.key | split("_")) as $k |
+        if $k[0] == "burst" then
+            row("hub"; "burst of \($h.messages) to \($h.clients) clients, deliveries/s"; $h.deliveries_per_s; "/s"),
+            one("hub"; "burst to \($h.clients) clients, dropped / refused, all runs"; "\($h.dropped) / \($h.refused)"; "")
+        else
+            row("hub"; "paced, \($h.clients) clients, delivery p50"; $h.p50_us; "µs"),
+            row("hub"; "paced, \($h.clients) clients, delivery p99"; $h.p99_us; "µs")
+        end),
+    (.startup // empty | . as $s |
+        row("startup"; "http_serve: spawn to first answer"; $s.first_answer_us; "µs"),
+        one("startup"; "binary size: http_serve / rpc_serve / hub_serve"; "\($s.size_bytes.http_serve / 1048576 * 100 | round / 100) / \($s.size_bytes.rpc_serve / 1048576 * 100 | round / 100) / \($s.size_bytes.hub_serve / 1048576 * 100 | round / 100)"; "MiB")),
+    (.pg // empty | if .skipped then one("pg"; "skipped"; .skipped; "") else
+        (to_entries[] | select(.value | type == "object" and has("us_per_op")) | .key as $k | .value as $v |
+            row("pg"; "\($k) (\($v.n) ops, \($v.failed) failed)"; $v.us_per_op; "µs/op")) end)
   ]'
 
 if [ "$RECORD" -eq 1 ]; then
     tmp="$WORK/baselines.json"
+    # rows of the areas this run measured replace those areas' rows; the
+    # other areas' rows stay, each stamped with the version it measured
     jq --argjson r "$report" --argjson rows "$(jq "$FLAT" <<<"$report")" \
-        '.gates = {updated_at: $r.generated_at, hale_version: $r.hale_version, hale_commit: $r.hale_commit,
+        '($rows | map(.area) | unique) as $areas
+         | ($rows | map(. + {hale_version: $r.hale_version, hale_commit: $r.hale_commit})) as $new
+         | .gates = {updated_at: $r.generated_at, hale_version: $r.hale_version, hale_commit: $r.hale_commit,
                    machine: ($r.machine | del(.kernel)), reps: $r.reps, build_reps: $r.build_reps,
                    note: "measured only; these are not tolerance bands and run.sh does not read them",
-                   measures: $rows}' \
+                   measures: (((.gates.measures // []) | map(select(.area as $a | $areas | index($a) | not))) + $new)}' \
         "$BENCH_DIR/baselines.json" >"$tmp"
     mv "$tmp" "$BENCH_DIR/baselines.json"
     log "recorded into baselines.json (.gates)"

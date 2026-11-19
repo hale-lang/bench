@@ -1,0 +1,103 @@
+// pq_bench — the pure-Hale Postgres client (`pq`) on a pooled connection.
+//
+// gates/run.sh copies the hale tree's vendored `dna/core/pond/pq` and
+// `pond/db` beside this file and points it at a throwaway Postgres
+// container (user, password and database `bench`, the port the first
+// argument). It times, sequentially on a `PgPool` of two connections:
+//   select1          `SELECT 1`, N times (a round trip and a row)
+//   lookup           a primary-key lookup in a 1,000-row table, N times
+//   transaction      `pool.transaction(..)` around one INSERT, N/4 times,
+//                    the commit flushed to disk (the server's default)
+//   transaction_async the same with `synchronous_commit` off, so the
+//                    number is the client and server path, not the disk
+// and prints one line per measure: `<name> n= ok= ns_per_op=`.
+
+import "./pond/pq" as pq;
+import "./pond/db" as db;
+
+locus Insert {
+    params { n: Int = 0; }
+    fn apply(tx: pq::PgConn) -> db::Status {
+        let r = tx.exec("INSERT INTO bench_tx (n) VALUES (" + to_string(self.n) + ")");
+        if !r.ok { return db::Status { ok: false, err: r.err }; }
+        return db::Status { ok: true };
+    }
+}
+
+main locus App {
+    params { pool: pq::PgPool = pq::PgPool { size: 2 }; }
+    run() {
+        self.pool = pq::PgPool {
+            host: "127.0.0.1",
+            port: std::str::parse_int(std::env::arg_or(1, "5432")) or 5432,
+            user: "bench", password: "bench", database: "bench", sslmode: "disable", size: 2,
+        };
+        let opened = self.pool.open();
+        if !opened.ok { println("open failed: " + opened.err.detail); return; }
+        // a rerun on the same server starts from the default commit
+        self.pool.exec("ALTER DATABASE bench RESET synchronous_commit");
+        self.pool.close();
+        let again = self.pool.open();
+        if !again.ok { println("reopen failed: " + again.err.detail); return; }
+        self.pool.exec("CREATE TABLE IF NOT EXISTS bench_kv (id int PRIMARY KEY, v text)");
+        self.pool.exec("TRUNCATE bench_kv");
+        self.pool.exec(
+            "INSERT INTO bench_kv SELECT g, 'value-' || g FROM generate_series(0, 999) g",
+        );
+        self.pool.exec("CREATE TABLE IF NOT EXISTS bench_tx (n int)");
+        let n = std::str::parse_int(std::env::arg_or(2, "20000")) or 20000;
+
+        let mut ok = 0;
+        let mut i = 0;
+        let t0 = std::time::monotonic_ns();
+        while i < n {
+            let r = self.pool.query_one("SELECT 1");
+            if r.ok { ok = ok + 1; }
+            i = i + 1;
+        }
+        let t1 = std::time::monotonic_ns();
+        println(f"select1 n={n} ok={ok} ns_per_op={(t1 - t0) / n}");
+
+        ok = 0; i = 0;
+        let t2 = std::time::monotonic_ns();
+        while i < n {
+            let r = self.pool.query_one("SELECT v FROM bench_kv WHERE id = " + to_string(i % 1000));
+            if r.ok { ok = ok + 1; }
+            i = i + 1;
+        }
+        let t3 = std::time::monotonic_ns();
+        println(f"lookup n={n} ok={ok} ns_per_op={(t3 - t2) / n}");
+
+        let m = n / 4;
+        ok = 0; i = 0;
+        let t4 = std::time::monotonic_ns();
+        while i < m {
+            let st = self.pool.transaction(Insert { n: i });
+            if st.ok { ok = ok + 1; }
+            i = i + 1;
+        }
+        let t5 = std::time::monotonic_ns();
+        println(f"transaction n={m} ok={ok} ns_per_op={(t5 - t4) / m}");
+
+        // the same transactions with the commit's WAL flush off, so the
+        // number is the client and server path rather than the disk
+        self.pool.exec("ALTER DATABASE bench SET synchronous_commit TO off");
+        self.pool.close();
+        let reopened = self.pool.open();
+        if !reopened.ok { println("reopen failed: " + reopened.err.detail); return; }
+        ok = 0; i = 0;
+        let t6 = std::time::monotonic_ns();
+        while i < m {
+            let st = self.pool.transaction(Insert { n: i });
+            if st.ok { ok = ok + 1; }
+            i = i + 1;
+        }
+        let t7 = std::time::monotonic_ns();
+        println(f"transaction_async n={m} ok={ok} ns_per_op={(t7 - t6) / m}");
+        self.pool.exec("DROP TABLE bench_tx");
+        self.pool.exec("DROP TABLE bench_kv");
+        self.pool.close();
+    }
+}
+
+fn main() { App { }; }

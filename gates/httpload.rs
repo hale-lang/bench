@@ -13,6 +13,11 @@
 //! errors, dropped, reconnects, seconds, requests per second, and latency
 //! percentiles in microseconds.
 //!
+//! `--startup <exe>` measures something else: it takes a free port,
+//! spawns `<exe> <port>`, and times from the spawn to the first `200`
+//! answer to `GET /health` (connect attempts 100 µs apart), then kills
+//! the child. Prints `{"startup_us":N}`.
+//!
 //! Build: `rustc -O --edition 2021 gates/httpload.rs -o <out>`
 //! Run:   `<out> --addr 127.0.0.1:8080 --conns 16 --duration 20 --warmup 3`
 
@@ -97,7 +102,42 @@ fn connect(addr: &str) -> TcpStream {
     }
 }
 
+fn startup(exe: &str) {
+    let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let addr = format!("127.0.0.1:{port}");
+    let req = format!("GET /health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n");
+    let t = Instant::now();
+    let mut child = std::process::Command::new(exe)
+        .arg(port.to_string())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .expect("spawn");
+    let mut buf = Vec::new();
+    let took = loop {
+        if let Ok(mut s) = TcpStream::connect(&addr) {
+            if s.write_all(req.as_bytes()).is_ok() {
+                if let Some((200, _)) = read_response(&mut s, &mut buf) {
+                    break t.elapsed();
+                }
+            }
+        }
+        if t.elapsed() > Duration::from_secs(20) {
+            let _ = child.kill();
+            panic!("no answer within 20 s");
+        }
+        thread::sleep(Duration::from_micros(100));
+    };
+    let _ = child.kill();
+    let _ = child.wait();
+    println!("{{\"startup_us\":{}}}", took.as_micros());
+}
+
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(i) = args.iter().position(|a| a == "--startup") {
+        return startup(&args[i + 1]);
+    }
     let o = opts();
     let req = format!("GET {} HTTP/1.1\r\nHost: {}\r\nConnection: keep-alive\r\n\r\n", o.path, o.addr);
     let stop = Arc::new(AtomicBool::new(false));

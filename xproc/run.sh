@@ -25,6 +25,9 @@
 #   node   : worker_threads + SharedArrayBuffer (SAME-process threads,
 #            NOT cross-process — Node has no stdlib mmap/shm; see the
 #            shm_xproc*.js headers). Shown for honesty, not parity.
+#
+# After the SHM tables, run-unix-bus.sh adds a Hale-only table: the bus
+# itself bound across two processes over a unix socket.
 set -euo pipefail
 
 XPROC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -151,3 +154,7 @@ echo "      (no stdlib cross-process shm in Node); not directly comparable."
 echo "note: large variant — Hale's payload is a flat 512-scalar-field"
 echo "      struct, NOT a [Int; N] array field (arrays lower to an"
 echo "      out-of-line pointer that dangles cross-process). See README."
+
+if [ "$HALE_OK" -eq 1 ]; then
+  ITERS="$ITERS" HALE_BIN="$HALE" "$XPROC_DIR/run-unix-bus.sh"
+fi

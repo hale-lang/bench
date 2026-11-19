@@ -1,0 +1,30 @@
+// str_words_chain — `std::str::words` as a chain source.
+//
+// str_words.hl's work written as `words(text).filter(len(it) > 3)
+// .count()`: the same 1M words over the same text, 500 rounds. A chain
+// lowers to the loop, so this should time the same as str_words; a gap
+// between the two is the chain's own cost.
+//
+// Hale-only: the siblings of str_words already are the other
+// languages' idiomatic form of this count.
+
+fn main() {
+    let mut text = "";
+    let mut i = 0;
+    while i < 200 {
+        text = text + "the quick brown fox jumps over a lazy dog and runs ";
+        i = i + 1;
+    }
+    let rounds = 500;
+    let t0 = std::time::monotonic();
+    let mut n = 0;
+    let mut r = 0;
+    while r < rounds {
+        n = n + std::str::words(text).filter(len(it) > 3).count();
+        r = r + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("rounds="); println(rounds);
+    print("count="); println(n);
+    print("elapsed_ns="); println(t1 - t0);
+}

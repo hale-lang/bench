@@ -1,0 +1,25 @@
+// display_fstring — the f-string display_template.hl's template stands for.
+//
+// The same 500k renders of the same Money values, written as
+// `f"${m.dollars}.{m.cents:0>2} {m.currency}"`. See display_template.hl.
+//
+// Hale-only.
+
+type Money { dollars: Int; cents: Int; currency: String; }
+
+fn main() {
+    let iters = 500000;
+    let t0 = std::time::monotonic();
+    let mut total = 0;
+    let mut i = 0;
+    while i < iters {
+        let m = Money { dollars: 12, cents: i % 100, currency: "USD" };
+        let s = f"${m.dollars}.{m.cents:0>2} {m.currency}";
+        total = total + len(s);
+        i = i + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("iters="); println(iters);
+    print("total="); println(total);
+    print("elapsed_ns="); println(t1 - t0);
+}

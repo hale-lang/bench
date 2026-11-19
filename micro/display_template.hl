@@ -1,0 +1,30 @@
+// display_template — rendering a record through its `@display` template.
+//
+// 500k renders of a Money record (`${dollars}.{cents:0>2} {currency}`)
+// with `f"{m}"`, the output lengths folded and printed; `cents` varies
+// so nothing hoists. Pairs with display_fstring.hl, which renders the
+// same text with the equivalent hand-written f-string: the template
+// desugars to that f-string (hale-lang/hale#2061), so the two should
+// time the same.
+//
+// Hale-only: the comparison is between two Hale forms.
+
+@display("${dollars}.{cents:0>2} {currency}")
+type Money { dollars: Int; cents: Int; currency: String; }
+
+fn main() {
+    let iters = 500000;
+    let t0 = std::time::monotonic();
+    let mut total = 0;
+    let mut i = 0;
+    while i < iters {
+        let m = Money { dollars: 12, cents: i % 100, currency: "USD" };
+        let s = f"{m}";
+        total = total + len(s);
+        i = i + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("iters="); println(iters);
+    print("total="); println(total);
+    print("elapsed_ns="); println(t1 - t0);
+}

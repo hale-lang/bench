@@ -7,7 +7,10 @@
 > whatever `hale build`'s default. The cross-language comparative grid,
 > the cross-process SHM tables and the v1 gate measures further down
 > were re-run on the same build the same day. What moved since the
-> previous baselines (v0.32.7) and why: **Since v0.32.7**, below.
+> previous baselines (v0.32.7) and why: **Since v0.32.7**, below. The
+> benches added later that day (text, bounded lists, the ring buffer,
+> `@rpc` and `ws::Hub`, startup, Postgres and the unix-socket bus) were
+> first measured on the same build.
 
 Performance harness for Hale, comparing against Go / Node / Python
 sibling implementations of the same workload shape. For the language
@@ -39,7 +42,7 @@ hale-vs-X ratio is a developer signal, not a CI gate").
 ./run.sh --no-build            # skip rebuild step
 ./run.sh --no-comparative      # Hale only, skip go/node/python siblings
 ./run.sh --json                # emit only the JSON report to stdout
-gates/run.sh                   # the v1 gate measures (build, http, memory, lsp), ~12 min
+gates/run.sh                   # the v1 gate measures (build, http, memory, lsp, api, hub, startup, pg), ~16 min
 gates/run.sh --record          # ... and record them in baselines.json's "gates"
 ```
 
@@ -310,6 +313,43 @@ remaining gap to Go and Node is the cost of `to_string` plus the arena
 enter/leave pair (about 60 instructions an iteration), not
 accumulation.
 
+### Text, bounded-list and ring microbenches
+
+| Bench | Hale | Go | Node | Python |
+|---|---:|---:|---:|---:|
+| `str_words`          | 24.29 ms | 7.61 ms (0.313×) | 15.85 ms (0.653×) | 53.69 ms (2.21×) |
+| `str_words_chain`    | 24.31 ms | — | — | — |
+| `str_csv_sum`        | 69.35 ms | 7.45 ms (0.107×) | 30.87 ms (0.445×) | 57.94 ms (0.835×) |
+| `str_concat_loop`    | 5.73 ms | 2.17 ms (0.378×) | 17.13 ms (2.99×) | 17.49 ms (3.05×) |
+| `str_match`          | 60.50 ms | 2.92 ms (0.0482×) | 4.27 ms (0.0706×) | 190.08 ms (3.14×) |
+| `display_template`   | 50.48 ms | — | — | — |
+| `display_fstring`    | 38.92 ms | — | — | — |
+| `bounded_records`    | 98.71 ms | 71.45 ms (0.724×) | 34.97 ms (0.354×) | 263.38 ms (2.67×) |
+| `ring_buffer_steady` | 105.89 ms | 27.45 ms (0.259×) | 24.54 ms (0.232×) | 215.82 ms (2.04×) |
+
+Added 2026-11-19, first measured on v0.36.0. Text is the weakest area
+this suite measures:
+
+- **Splitting and parsing.** Go splits words 3.2× faster and parses
+  the CSV 9× faster; C and Rust are 10–27× faster on both.
+- **String `match`.** 16 literal arms cost about 30 ns a match, where
+  Go's and Rust's `switch` / `match` cost about 1.5 ns and C's `strcmp`
+  chain 12 ns.
+- **Chains.** `str_words_chain` times the same as the `for` loop over
+  `words`, so the chain costs nothing beyond the loop.
+- **Building with `+`.** A string built with `+` is linear
+  (hale-lang/hale#1960): 5.7 ns an append, against 2.2 ns for Go's
+  `strings.Builder` and 0.5 ns for a C doubling buffer.
+- **`@display`.** A template renders 30% slower than the f-string it
+  stands for (hale-lang/hale#2061 desugars one to the other), and both
+  hold 59–67 MB at the end, because what `fn main`'s loop makes stays
+  until `main` returns (see hale-lang/hale#2090).
+
+`bounded_records` is ahead of Rust (1.11×, which clones where Hale
+copies) and Python, and behind Go (whose struct copies share their
+immutable strings) and V8. `ring_buffer_steady` holds 4.5 MB flat over
+2M push/pop rounds, while C and Rust are about 2.4× faster.
+
 ### Coordinated-workload microbenches
 
 | Bench | Hale | Go | Node | Python |
@@ -465,6 +505,18 @@ before v0.32.7 and carried no version; v0.32.7 already measures
 12.55 / 2.80 ms and 18.20 / 20.51 ms, the same as v0.36.0 within noise,
 so the large-variant gain predates the range **Since v0.32.7** covers.
 
+**Bus over `unix://`** (`xproc/run-unix-bus.sh`, run at the end of
+`xproc/run.sh`, Hale-only). The bus itself bound across two processes:
+a publisher floods N = 200 000 one-Int records on a topic that
+`LOTUS_BUS_CONFIG` binds to a unix socket the subscriber listens on, and
+the subscriber times its first delivery to its last. The code of both
+is what it would be in one process. Median of 20 runs, v0.36.0:
+
+| mode | median | records/s |
+|---|---:|---:|
+| default binding | 135.03 ms | 1,481,212 |
+| `LOTUS_UNIX_STREAM=1` (framed stream) | 185.82 ms | 1,076,328 |
+
 **The `Drain<T>` batch consumer closes the dispatch gap — and on the
 small variant, Hale now wins.** A subscriber whose handler takes
 `Drain<T>` instead of the payload `T` is dispatched **once per
@@ -612,7 +664,8 @@ work-in-progress.
 
 The measures hale-lang/hale#1950 needs before v1 targets can be set:
 what the toolchain costs (build time, editor latency) and what a served
-program does (HTTP throughput and tail latency, memory under load).
+program does: HTTP throughput and tail latency, memory under load, an
+`@rpc` round trip, `ws::Hub` fan-out, startup, and a Postgres pool.
 `gates/run.sh` takes them. **It measures only.** There are no
 tolerance bands here, `run.sh` does not read them, and no number fails
 the run: they are recorded so that targets can be chosen against
@@ -628,18 +681,22 @@ git clone https://github.com/hale-lang/hale
 cd hale && cargo build --release && cd ..
 
 # 2. This repo beside it; then, from this repo's root:
-gates/run.sh                       # all four, ~12 min; table on stderr
-gates/run.sh --only=http,memory    # a subset of build,http,memory,lsp
-gates/run.sh --record              # also write the medians to baselines.json ("gates")
+gates/run.sh                       # all of them, ~16 min; table on stderr
+gates/run.sh --only=http,memory    # a subset of build,http,memory,lsp,api,hub,startup,pg
+gates/run.sh --record              # also write the medians to baselines.json ("gates"),
+                                   # replacing only the areas this run measured
 ```
 
 `HALE_BIN` picks the binary as `run.sh` does; `HALE_SRC` names the hale
 checkout to read programs from (default: the checkout `HALE_BIN` sits
 in, else `../hale`). The checkout is only read; builds run on a copy.
-`--reps=N` (default 5) repeats each HTTP measure, `--build-reps=N`
-(default 3) each build, and `--memory-seconds=N` (default 120) sets
-the memory run's length. Needs jq, `/usr/bin/time`, python3 and rustc,
-nothing beyond their standard libraries. Every run writes
+`--reps=N` (default 5) repeats each HTTP, API and hub measure (pg runs
+3), `--build-reps=N` (default 3) each build, and `--memory-seconds=N`
+(default 120) sets the memory run's length. Needs jq, `/usr/bin/time`,
+python3 and rustc, nothing beyond their standard libraries. `pg` also
+needs docker: it starts a `postgres:16` container named
+`hale-bench-pg-<pid>` on a free loopback port and removes it, volume
+included, when it ends. Without docker it says so and skips. Every run writes
 `results/gates-<stamp>.json` with each repeat's raw numbers.
 
 Compare like with like: the same machine, idle, the same build profile.
@@ -677,6 +734,21 @@ the repeats (builds 3, HTTP 5), with the range across them;
 | editor | large seed (`dna/core`): open, to diagnostics | 733 ms | |
 | editor | large seed: edit, to diagnostics, p50 / p95 | 749 / 759 ms | 20 edits |
 | editor | large seed: server peak RSS | 303 MiB | |
+| api | unix rpc, 1 connection: calls/s | 55,303 | 55,091 to 55,547 |
+| api | unix rpc, 1 connection: p50 / p99 | 17 / 21 µs | p99 21 to 23 |
+| api | unix rpc, 16 connections: calls/s | 148,449 | 145,518 to 149,469 |
+| api | unix rpc, 16 connections: p50 / p99 | 103 / 146 µs | p99 145 to 147 |
+| api | errors / dropped calls, every run | 0 / 0 | |
+| hub | burst of 10,000 to 1 / 16 / 64 clients: deliveries/s | 245,212 / 206,353 / 188,956 | |
+| hub | burst: dropped deliveries / refused upgrades, every run | 0 / 0 | |
+| hub | paced (1 ms apart), 1 client: delivery p50 / p99 | 12 / 22 µs | p99 17 to 35 |
+| hub | paced, 64 clients: delivery p50 / p99 | 204 / 393 µs | p99 387 to 394 |
+| startup | `http_serve`: spawn to first answered request | 598 µs | 583 to 790 |
+| startup | binary size: `http_serve` / `rpc_serve` / `hub_serve` | 1.60 / 1.68 / 1.69 MiB | |
+| pg | `SELECT 1` | 19.7 µs | 19.4 to 21.9 |
+| pg | primary-key lookup, 1,000 rows | 22.6 µs | 22.5 to 23.1 |
+| pg | one-INSERT transaction, commit flushed | 1.94 ms | 1.87 to 2.02 |
+| pg | one-INSERT transaction, `synchronous_commit` off | 65.4 µs | 64.0 to 65.7 |
 
 ### What each measures
 
@@ -723,8 +795,43 @@ server then silent for 1 s. The small seed is
 `assembly.hl`, which the server checks whole on every event. Peak RSS
 is the server's VmHWM at the end.
 
-Not measured here: cold start of a built binary, cross-machine bus
-transports, HTTPS. Each needs a harness of its own.
+**API** (`gates/rpc_serve.hl` under `gates/rpcload.rs`). One `@rpc`
+method (`Echo::on_ping`) is served with `api::serve` over `unix::Rpc`,
+its receiver on an async_io pool. main parks on the exposure's `wait()`:
+a serving `run()` that sleeps in a loop answers each call only when its
+sleep slice ends, about 100–250 ms a call (hale-lang/hale#2091). The
+client is closed-loop: each connection sends the next JSON-line call
+when the last reply is read, for 10 s after 2 s of warm-up, at 1 and 16
+connections. A reply without `"ok":true` is an error, and a call whose
+connection fails is dropped and counted.
+
+**Hub** (`gates/hub_serve.hl` under `gates/wsload.rs`). A `ws::Hub`
+streams the topic `Ticks` (`bound: 4096, on_full: drop_old`) to N
+websocket clients that each subscribe and wait for `subscribed`.
+- *Burst:* 10,000 ticks are published back to back, timed from the
+  command to the last delivery. Expected minus received is the
+  dropped count (`drop_old` sheds under a slow reader).
+- *Paced:* 500 ticks, 1 ms apart, each reaching an idle hub. Every
+  tick carries its publish time on the host's monotonic clock, so a
+  delivery's latency is read against the same clock.
+
+**Startup** (`gates/httpload.rs --startup`). This spawns `http_serve`
+on a free port and polls `GET /health` every 100 µs, timing from the
+spawn to the first `200`. Sizes are the three servers' binaries as
+`hale build` makes them (release, host CPU, not stripped).
+
+**Postgres** (`gates/pq_bench.hl`). This uses `pq`, the pure-Hale
+Postgres client (the hale tree's `dna/core/pond/pq`; no libpq), on a
+`PgPool` of two connections, against `postgres:16` in a throwaway
+container on the loopback. Every operation runs sequentially: 20,000
+`SELECT 1`s, 20,000 primary-key lookups, and 5,000 transactions around
+one INSERT. The transactions run twice: with the server's default
+flushed commit, which this machine's disk dominates, and with
+`synchronous_commit` off, which leaves the client and server path
+(three round trips).
+
+Not measured here: cross-machine bus transports and HTTPS. Each needs
+a harness of its own.
 
 ## Three kinds of microbench
 
@@ -940,6 +1047,30 @@ iteration makes is freed when the next one starts.
   the loop stopped reclaiming per iteration. Go, Node and Python
   siblings run the same loop in a method on a struct or class.
 
+### Text, bounded-list and ring microbenches
+
+Each file's header has the details.
+
+- **`str_words`**, **`str_words_chain`**: `std::str::words` over a
+  10 KB text as a `for` source, and the same count as a chain.
+- **`str_csv_sum`**: `std::str::lines` as a `for` source and
+  `std::str::split(..).map(parse_int).sum()` per row.
+- **`str_concat_loop`**: `s = s + "ab"` 1M times (linear building,
+  hale-lang/hale#1960).
+- **`str_match`**: a string `match` against 16 literal arms.
+- **`display_template`**, **`display_fstring`**: a record rendered
+  through its `@display` template, and through the f-string the template
+  stands for. Both are Hale-only.
+- **`bounded_records`**: `bounded[T; N]` push, `at`/`set` and the
+  hale-lang/hale#2067 summary push, on records holding Strings. It runs
+  in a locus method; see hale-lang/hale#2090 for why.
+- **`ring_buffer_steady`**: a `@form(ring_buffer)` of records in steady
+  state; maxrss is the flat-memory check (hale-lang/hale#2044).
+
+C siblings exist where the shape translates (`str_*` scans, a doubling
+buffer, an `strcmp` chain, a fixed ring). `bounded_records` has none,
+because an honest one would need its own string ownership scheme.
+
 ## Layout
 
 ```
@@ -983,14 +1114,25 @@ iteration makes is freed when the next one starts.
 │   ├── vec_queue_pop.hl, vec_set_bytes.hl
 │   │
 │   │   # Per-iteration reclaim microbenches
-│   └── method_loop_alloc.{hl,go,js,py}
+│   ├── method_loop_alloc.{hl,go,js,py}
+│   │
+│   │   # Text, bounded-list and ring microbenches
+│   ├── str_words, str_csv_sum, str_concat_loop, str_match .{hl,c,rs,go,js,py}
+│   ├── str_words_chain.hl, display_template.hl, display_fstring.hl
+│   ├── bounded_records.{hl,rs,go,js,py}
+│   └── ring_buffer_steady.{hl,c,rs,go,js,py}
 ├── app/
 │   └── stream_aggregator.{ap,go,js,py}
 ├── gates/                   v1 gate measures (own runner; measures only)
 │   ├── run.sh               build, http, memory, lsp
 │   ├── http_serve.hl        the served program
 │   ├── httpload.rs          closed-loop HTTP/1.1 load generator (std only)
-│   └── lsp_latency.py       an LSP client that times `hale lsp`
+│   ├── lsp_latency.py       an LSP client that times `hale lsp`
+│   ├── rpc_serve.hl         one @rpc method over unix::Rpc
+│   ├── rpcload.rs           closed-loop JSON-line RPC client (std only)
+│   ├── hub_serve.hl         a ws::Hub streaming one topic
+│   ├── wsload.rs            N websocket clients, fan-out and latency (std only)
+│   └── pq_bench.hl          the pure-Hale pq client on a pool
 └── c-twins/                 (placeholder) hand-written C equivalents
                              for FORM-3 10%-gate comparisons.
 ```

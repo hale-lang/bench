@@ -1,0 +1,51 @@
+// ring_buffer_steady — a `@form(ring_buffer)` of records in steady state.
+//
+// A ring of capacity 64 is filled to 32, then 2M rounds each push one
+// record (two Ints and a short String tag) and pop the oldest, so the
+// ring never fills or empties and every pop retires the record a push
+// wrote 32 rounds earlier. The popped values are folded and printed.
+//
+// Throughput is the elapsed time. Memory should be flat: since
+// hale-lang/hale#2044 a push copies only when it lands and a pop retires
+// the cell, so maxrss stays at the empty program's (about 4.5 MB)
+// whatever the round count; a growth in maxrss here means the ring
+// stopped giving back what a pop retires. The rounds run in a locus
+// method, where a long-lived ring lives.
+//
+// Siblings: Go a fixed array with head/tail, Rust VecDeque with
+// capacity, JS an array with head/tail, Python collections.deque, C a
+// fixed array whose tag is an inline char[16].
+
+type Sample { t: Int; v: Int; tag: String; }
+
+@form(ring_buffer, cap = 64)
+locus Recent { capacity { pool history of Sample; } }
+
+locus Churn {
+    params { rb: Recent = Recent { }; sum: Int = 0; }
+    fn go(rounds: Int) {
+        let mut i = 0;
+        while i < 32 {
+            let _ = self.rb.push(Sample { t: i, v: i % 7, tag: f"s{i % 10}" });
+            i = i + 1;
+        }
+        let mut k = 0;
+        while k < rounds {
+            let _ = self.rb.push(Sample { t: k, v: k % 7, tag: f"s{k % 10}" });
+            let got = self.rb.pop() or Sample { t: 0, v: 0, tag: "" };
+            self.sum = self.sum + got.v + len(got.tag);
+            k = k + 1;
+        }
+    }
+}
+
+fn main() {
+    let rounds = 2000000;
+    let c = Churn { };
+    let t0 = std::time::monotonic();
+    c.go(rounds);
+    let t1 = std::time::monotonic();
+    print("rounds="); println(rounds);
+    print("sum="); println(c.sum);
+    print("elapsed_ns="); println(t1 - t0);
+}

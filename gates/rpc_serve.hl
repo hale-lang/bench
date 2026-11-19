@@ -1,0 +1,41 @@
+// rpc_serve — one @rpc method served over a unix socket, for load.
+//
+// `Echo::on_ping` (`Ping { n } -> Pong { n + 1 }`) on the surface
+// `Public`, exposed with `unix::Rpc` at the path given as the first
+// argument, the receiver on an async_io pool as the book's API chapter
+// places it. main parks on the exposure's `wait()`: a `run()` that
+// sleeps in a loop instead answers each call only when its sleep slice
+// ends (~100 ms; hale-lang/hale#2091). Runs until stopped.
+
+locus Anyone {
+    fn holds(p: std::api::Principal, r: String) -> Bool { return true; }
+}
+
+type Ping { n: Int; }
+type Pong { n: Int; }
+
+locus Echo {
+    fn on_ping(p: Ping) -> Pong { return Pong { n: p.n + 1 }; }
+}
+
+api Public { rpc Echo::on_ping; }
+
+main locus App {
+    params {
+        echo: Echo = Echo { };
+        sock: api::Exposure = api::serve(
+            Public,
+            unix::Rpc { path: std::env::arg_or(1, "/tmp/hale-bench-rpc.sock"), roles: Anyone { } },
+            as: "sock",
+            receivers: { Echo: self.echo },
+            bound: 64,
+            on_full: refuse
+        );
+    }
+    placement { echo: cooperative(pool = work) where async_io; }
+    run() {
+        self.sock.wait();
+    }
+}
+
+fn main() { App { }; }

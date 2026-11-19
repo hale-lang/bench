@@ -1,0 +1,27 @@
+// str_concat_loop — a string built with `+` in a loop.
+//
+// `s = s + "ab"` 1M times, a 2 MB result. Since hale-lang/hale#1960 an
+// appending assignment to a `let mut` local writes after its last byte
+// while its buffer has room, and otherwise moves to a buffer half again
+// as large, so this is linear; before it, each `+` copied the whole
+// string. Prints the final length.
+//
+// Siblings use each language's idiomatic way to build a string in a
+// loop, since the literal translation is quadratic in some of them: Go
+// strings.Builder, Rust String::push_str, C a doubling buffer; JS and
+// Python use `+=` (V8 builds a rope; CPython extends in place).
+
+fn main() {
+    let iters = 1000000;
+    let t0 = std::time::monotonic();
+    let mut s = "";
+    let mut i = 0;
+    while i < iters {
+        s = s + "ab";
+        i = i + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("iters="); println(iters);
+    print("len="); println(len(s));
+    print("elapsed_ns="); println(t1 - t0);
+}

@@ -1,0 +1,83 @@
+// hub_serve — a `ws::Hub` fanning one topic out to its subscribers.
+//
+// The hub listens on 127.0.0.1 at the port given as the first argument
+// and streams the topic `Ticks` (`requires: [reader]`, every bearer is a
+// reader). The program is driven by a control directory, the second
+// argument: when a file `cmd` there reads `publish M`, it publishes M
+// ticks back to back; `pace M`, M ticks 1 ms apart (each delivered on
+// an idle hub, for latency); `stop` ends it. Each tick carries its index
+// and the publish time (`std::time::monotonic_ns()`, the system-wide
+// monotonic clock a client on the same host can compare against).
+
+role reader;
+
+type Tick { n: Int; at: Int; }
+topic Ticks { payload: Tick; subject: "bench.ticks"; }
+
+locus Bearers {
+    fn principal(token: String) -> std::api::Principal {
+        return std::api::Principal { mode: "bearer", name: "bench" };
+    }
+    fn refused() -> String { return "no such token"; }
+}
+
+locus Readers {
+    fn holds(p: std::api::Principal, r: String) -> Bool { return true; }
+}
+
+locus Maker {
+    bus { publish Ticks; }
+    fn make(m: Int) {
+        let mut i = 1;
+        while i <= m {
+            Ticks <- Tick { n: i, at: std::time::monotonic_ns() };
+            i = i + 1;
+        }
+    }
+    fn pace(m: Int) {
+        let mut i = 1;
+        while i <= m {
+            Ticks <- Tick { n: i, at: std::time::monotonic_ns() };
+            std::time::sleep(1ms);
+            i = i + 1;
+        }
+    }
+}
+
+main locus Desk {
+    params {
+        bearer: Bearers = Bearers { };
+        readers: Readers = Readers { };
+        hub: ws::Hub = ws::Hub {
+            bind: "127.0.0.1:" + std::env::arg_or(1, "8796"),
+            principals: self.bearer,
+            roles: self.readers,
+            as: "ticks",
+        };
+        maker: Maker = Maker { };
+    }
+    bindings {
+        Ticks: self.hub requires: [reader], bound: 4096, on_full: drop_old;
+    }
+    run() {
+        let ctl = std::env::arg_or(2, "/tmp");
+        let mut done = false;
+        while !done && !self.draining {
+            let cmd = std::str::trim(std::io::fs::read_file(ctl + "/cmd") or "");
+            if len(cmd) > 0 {
+                std::io::fs::unlink(ctl + "/cmd") or discard;
+                if cmd == "stop" { done = true; }
+                if std::str::starts_with(cmd, "publish ") {
+                    self.maker.make(std::str::parse_int(cmd[8..len(cmd)]) or 0);
+                }
+                if std::str::starts_with(cmd, "pace ") {
+                    self.maker.pace(std::str::parse_int(cmd[5..len(cmd)]) or 0);
+                }
+            }
+            std::time::sleep(1ms);
+        }
+        self.hub.stop();
+    }
+}
+
+fn main() { Desk { }; }

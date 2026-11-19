@@ -300,10 +300,91 @@
       "drift_sigma": 0.0039,
       "drift_range": 0.009,
       "runs": 5
+    },
+    "bounded_records": {
+      "kind": "micro",
+      "elapsed_ns": 98969933,
+      "maxrss_kb": 4608,
+      "noise": 0.0062,
+      "drift_sigma": 0.0026,
+      "drift_range": 0.0061,
+      "runs": 5
+    },
+    "display_fstring": {
+      "kind": "micro",
+      "elapsed_ns": 39168515,
+      "maxrss_kb": 59072,
+      "noise": 0.0075,
+      "drift_sigma": 0.009,
+      "drift_range": 0.0208,
+      "runs": 5
+    },
+    "display_template": {
+      "kind": "micro",
+      "elapsed_ns": 50628700,
+      "maxrss_kb": 66900,
+      "noise": 0.0069,
+      "drift_sigma": 0.0053,
+      "drift_range": 0.0122,
+      "runs": 5
+    },
+    "ring_buffer_steady": {
+      "kind": "micro",
+      "elapsed_ns": 105970066,
+      "maxrss_kb": 4520,
+      "noise": 0.0069,
+      "drift_sigma": 0.0036,
+      "drift_range": 0.0084,
+      "runs": 5
+    },
+    "str_concat_loop": {
+      "kind": "micro",
+      "elapsed_ns": 5546575,
+      "maxrss_kb": 8552,
+      "noise": 0.0163,
+      "drift_sigma": 0.0129,
+      "drift_range": 0.03,
+      "runs": 5
+    },
+    "str_csv_sum": {
+      "kind": "micro",
+      "elapsed_ns": 70209361,
+      "maxrss_kb": 13768,
+      "noise": 0.0083,
+      "drift_sigma": 0.0056,
+      "drift_range": 0.013,
+      "runs": 5
+    },
+    "str_match": {
+      "kind": "micro",
+      "elapsed_ns": 61231370,
+      "maxrss_kb": 4516,
+      "noise": 0.0078,
+      "drift_sigma": 0.013,
+      "drift_range": 0.0301,
+      "runs": 5
+    },
+    "str_words": {
+      "kind": "micro",
+      "elapsed_ns": 24612083,
+      "maxrss_kb": 9408,
+      "noise": 0.0052,
+      "drift_sigma": 0.0069,
+      "drift_range": 0.016,
+      "runs": 5
+    },
+    "str_words_chain": {
+      "kind": "micro",
+      "elapsed_ns": 24513739,
+      "maxrss_kb": 9400,
+      "noise": 0.0058,
+      "drift_sigma": 0.0018,
+      "drift_range": 0.0043,
+      "runs": 5
     }
   },
   "gates": {
-    "updated_at": "2026-11-19T12:42:53Z",
+    "updated_at": "2026-11-19T13:36:49Z",
     "hale_version": "0.36.0",
     "hale_commit": "1e4fd190d",
     "machine": {
@@ -391,7 +472,7 @@
       {
         "area": "http",
         "measure": "1 conn, p50",
-        "unit": "\u00b5s",
+        "unit": "µs",
         "median": 20,
         "min": 20,
         "max": 20
@@ -399,7 +480,7 @@
       {
         "area": "http",
         "measure": "1 conn, p99",
-        "unit": "\u00b5s",
+        "unit": "µs",
         "median": 28,
         "min": 27,
         "max": 28
@@ -421,7 +502,7 @@
       {
         "area": "http",
         "measure": "16 conn, p50",
-        "unit": "\u00b5s",
+        "unit": "µs",
         "median": 193,
         "min": 193,
         "max": 194
@@ -429,7 +510,7 @@
       {
         "area": "http",
         "measure": "16 conn, p99",
-        "unit": "\u00b5s",
+        "unit": "µs",
         "median": 240,
         "min": 238,
         "max": 246
@@ -451,7 +532,7 @@
       {
         "area": "http",
         "measure": "64 conn, p50",
-        "unit": "\u00b5s",
+        "unit": "µs",
         "median": 774,
         "min": 766,
         "max": 789
@@ -459,7 +540,7 @@
       {
         "area": "http",
         "measure": "64 conn, p99",
-        "unit": "\u00b5s",
+        "unit": "µs",
         "median": 870,
         "min": 837,
         "max": 890
@@ -541,6 +622,234 @@
         "measure": "large seed: server peak RSS",
         "unit": "MiB",
         "median": 302.6
+      },
+      {
+        "area": "api",
+        "measure": "unix rpc, 1 conn, calls/s",
+        "unit": "calls/s",
+        "median": 55303,
+        "min": 55091,
+        "max": 55547,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "api",
+        "measure": "unix rpc, 1 conn, p50",
+        "unit": "µs",
+        "median": 17,
+        "min": 17,
+        "max": 17,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "api",
+        "measure": "unix rpc, 1 conn, p99",
+        "unit": "µs",
+        "median": 21,
+        "min": 21,
+        "max": 23,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "api",
+        "measure": "unix rpc, 1 conn, errors / dropped, all runs",
+        "unit": "",
+        "median": "0 / 0",
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "api",
+        "measure": "unix rpc, 16 conn, calls/s",
+        "unit": "calls/s",
+        "median": 148449,
+        "min": 145518,
+        "max": 149469,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "api",
+        "measure": "unix rpc, 16 conn, p50",
+        "unit": "µs",
+        "median": 103,
+        "min": 102,
+        "max": 104,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "api",
+        "measure": "unix rpc, 16 conn, p99",
+        "unit": "µs",
+        "median": 146,
+        "min": 145,
+        "max": 147,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "api",
+        "measure": "unix rpc, 16 conn, errors / dropped, all runs",
+        "unit": "",
+        "median": "0 / 0",
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "burst of 10000 to 1 clients, deliveries/s",
+        "unit": "/s",
+        "median": 245212,
+        "min": 231335,
+        "max": 247351,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "burst to 1 clients, dropped / refused, all runs",
+        "unit": "",
+        "median": "0 / 0",
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "burst of 10000 to 16 clients, deliveries/s",
+        "unit": "/s",
+        "median": 206353,
+        "min": 200467,
+        "max": 208866,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "burst to 16 clients, dropped / refused, all runs",
+        "unit": "",
+        "median": "0 / 0",
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "burst of 10000 to 64 clients, deliveries/s",
+        "unit": "/s",
+        "median": 188956,
+        "min": 186129,
+        "max": 189953,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "burst to 64 clients, dropped / refused, all runs",
+        "unit": "",
+        "median": "0 / 0",
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "paced, 1 clients, delivery p50",
+        "unit": "µs",
+        "median": 12,
+        "min": 10,
+        "max": 12,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "paced, 1 clients, delivery p99",
+        "unit": "µs",
+        "median": 22,
+        "min": 17,
+        "max": 35,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "paced, 64 clients, delivery p50",
+        "unit": "µs",
+        "median": 204,
+        "min": 202,
+        "max": 206,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "hub",
+        "measure": "paced, 64 clients, delivery p99",
+        "unit": "µs",
+        "median": 393,
+        "min": 387,
+        "max": 394,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "startup",
+        "measure": "http_serve: spawn to first answer",
+        "unit": "µs",
+        "median": 598,
+        "min": 583,
+        "max": 790,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "startup",
+        "measure": "binary size: http_serve / rpc_serve / hub_serve",
+        "unit": "MiB",
+        "median": "1.6 / 1.68 / 1.69",
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "pg",
+        "measure": "lookup (20000 ops, 0 failed)",
+        "unit": "µs/op",
+        "median": 22.6,
+        "min": 22.5,
+        "max": 23.1,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "pg",
+        "measure": "select1 (20000 ops, 0 failed)",
+        "unit": "µs/op",
+        "median": 19.7,
+        "min": 19.4,
+        "max": 21.9,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "pg",
+        "measure": "transaction (5000 ops, 0 failed)",
+        "unit": "µs/op",
+        "median": 1943.1,
+        "min": 1874.5,
+        "max": 2023.2,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
+      },
+      {
+        "area": "pg",
+        "measure": "transaction_async (5000 ops, 0 failed)",
+        "unit": "µs/op",
+        "median": 65.4,
+        "min": 64.0,
+        "max": 65.7,
+        "hale_version": "0.36.0",
+        "hale_commit": "1e4fd190d"
       }
     ]
   }

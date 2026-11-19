@@ -1,0 +1,38 @@
+// unix_bus_sub — the subscriber side of the cross-process bus bench.
+//
+// Subscribes to `Beat` (`bench.unix`), which run-unix-bus.sh binds to a
+// unix socket this process listens on (LOTUS_BUS_CONFIG; the code is the
+// same as an in-process subscriber's). Counts what arrives and times
+// from the first delivery to the last on its own clock, then prints
+// `count=` and `elapsed_ns=`. The count to wait for is the first
+// argument; it gives up after 30 s.
+
+type Tick { n: Int = 0; }
+topic Beat { payload: Tick; subject: "bench.unix"; }
+
+locus Counter {
+    params { seen: Int = 0; first: Int = 0; last: Int = 0; }
+    bus { subscribe Beat as on_beat; }
+    fn on_beat(t: Tick) {
+        let now = std::time::monotonic_ns();
+        if self.seen == 0 { self.first = now; }
+        self.last = now;
+        self.seen = self.seen + 1;
+    }
+}
+
+main locus App {
+    params { counter: Counter = Counter { }; }
+    run() {
+        let n = std::str::parse_int(std::env::arg_or(1, "200000")) or 200000;
+        let deadline = std::time::monotonic_ns() + 30000000000;
+        while self.counter.seen < n && std::time::monotonic_ns() < deadline {
+            std::time::sleep(1ms);
+        }
+        print("n="); println(n);
+        print("count="); println(self.counter.seen);
+        print("elapsed_ns="); println(self.counter.last - self.counter.first);
+    }
+}
+
+fn main() { App { }; }

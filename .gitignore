@@ -32,6 +32,8 @@ xproc/shm_xproc_producer
 xproc/shm_xproc_large_reader
 xproc/shm_xproc_large_reader_drain
 xproc/shm_xproc_large_producer
+xproc/unix_bus_sub
+xproc/unix_bus_pub
 xproc/*.bin
 xproc/*.go.bin
 

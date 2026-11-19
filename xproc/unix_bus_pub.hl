@@ -1,0 +1,24 @@
+// unix_bus_pub — the publisher side of the cross-process bus bench.
+//
+// Publishes N `Beat` ticks back to back (N is the first argument) on a
+// topic run-unix-bus.sh binds to the subscriber's unix socket
+// (LOTUS_BUS_CONFIG, role connect), then stays 300 ms so the wire
+// drains before it exits.
+
+type Tick { n: Int = 0; }
+topic Beat { payload: Tick; subject: "bench.unix"; }
+
+main locus App {
+    bus { publish Beat; }
+    run() {
+        let n = std::str::parse_int(std::env::arg_or(1, "200000")) or 200000;
+        let mut i = 0;
+        while i < n {
+            Beat <- Tick { n: i };
+            i = i + 1;
+        }
+        std::time::sleep(300ms);
+    }
+}
+
+fn main() { App { }; }

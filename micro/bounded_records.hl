@@ -1,0 +1,93 @@
+// bounded_records — `bounded[T; N]` lists of records holding Strings.
+//
+// Each round (a fn call, so its values are freed when it returns):
+//   1. push 32 rows, each with a fresh `id` String and two tags, into
+//      a `bounded[Row; 64]` — a local not used after its push, which
+//      `push` keeps without copying;
+//   2. read each row with `at`, change its `id`, `set` it back — the
+//      in-place read-modify-write;
+//   3. the hale-lang/hale#2067 shape: build a summary per row with a
+//      helper whose result takes the row's `bounded` tags
+//      (`v.tags = r.tags; return v;`) and push each result into a
+//      second bounded list — the case where `push` must copy, because
+//      the result still holds the argument's elements.
+// 20,000 rounds: 640k pushes, 640k at/set pairs, 640k summary pushes.
+// Prints the folded lengths.
+//
+// Siblings keep value semantics in each language's own way: Go fixed
+// arrays of structs (strings shared, immutable), Rust Vec with
+// `clone()` where Hale copies, JS and Python lists with the tags list
+// copied in the summary. No C sibling: an honest one needs its own
+// string ownership scheme (strdup/free per field), which would measure
+// that scheme rather than the shape.
+
+type Tag { name: String = ""; }
+type Row { id: String = ""; tags: bounded[Tag; 4]; }
+type Rows { items: bounded[Row; 64]; }
+type Sum { id: String = ""; tags: bounded[Tag; 4]; }
+type Out { items: bounded[Sum; 64]; }
+
+fn summary_of(r: Row) -> Sum {
+    let mut v = Sum { id: r.id };
+    v.tags = r.tags;
+    return v;
+}
+
+fn summaries(rs: Rows) -> Out {
+    let mut out = Out { };
+    for r in rs.items {
+        push(out.items, summary_of(r)) or discard;
+    }
+    return out;
+}
+
+fn round(k: Int) -> Int {
+    let mut rs = Rows { };
+    let mut j = 0;
+    while j < 32 {
+        let mut r = Row { id: f"row-{k}-{j}" };
+        push(r.tags, Tag { name: "red" }) or discard;
+        push(r.tags, Tag { name: f"t{j}" }) or discard;
+        push(rs.items, r) or discard;
+        j = j + 1;
+    }
+    j = 0;
+    while j < 32 {
+        let mut x = at(rs.items, j) or Row { };
+        x.id = x.id + "!";
+        set(rs.items, j, x) or discard;
+        j = j + 1;
+    }
+    let out = summaries(rs);
+    let mut n = 0;
+    for s in out.items {
+        n = n + len(s.id) + count(s.tags);
+    }
+    return n;
+}
+
+// The rounds run in a locus method, as a long-lived program's work
+// would: called straight from `fn main`'s loop, each round's blocks are
+// left in main's arena (hale-lang/hale#2090) and the bench would time
+// 345 MB of page faults instead of the copies.
+locus Driver {
+    params { total: Int = 0; }
+    fn go(rounds: Int) {
+        let mut k = 0;
+        while k < rounds {
+            self.total = self.total + round(k);
+            k = k + 1;
+        }
+    }
+}
+
+fn main() {
+    let rounds = 20000;
+    let d = Driver { };
+    let t0 = std::time::monotonic();
+    d.go(rounds);
+    let t1 = std::time::monotonic();
+    print("rounds="); println(rounds);
+    print("total="); println(d.total);
+    print("elapsed_ns="); println(t1 - t0);
+}
