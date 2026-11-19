@@ -1,0 +1,71 @@
+// bus_round_trip — publish a request, wait for the reply, repeat.
+//
+// Pairs with bus_dispatch.hl, which pipelines 100k one-way publishes
+// and so measures dispatch THROUGHPUT. Here exactly one round trip is
+// in flight: main's run() publishes a Ping, Echo (on main's own pool)
+// answers with a Pong, main's handler counts it, and main yields until
+// it is in before sending the next Ping. elapsed_ns / iters is the
+// LATENCY of two publishes and two dispatches through main's queue —
+// the number a request/reply caller waits, which the pipelined bench
+// cannot show.
+//
+// Hale-only: the shape is the bus's own request/reply, and a Go
+// channel ping-pong would measure the goroutine scheduler instead.
+
+type Ping {
+    n: Int;
+}
+
+type Pong {
+    n: Int;
+}
+
+locus Echo {
+    bus {
+        subscribe "bench.rt.ping" as on_ping of type Ping;
+        publish "bench.rt.pong" of type Pong;
+    }
+    fn on_ping(p: Ping) {
+        "bench.rt.pong" <- Pong { n: p.n };
+    }
+}
+
+main locus App {
+    params {
+        echo: Echo = Echo { };
+        got: Int = 0;
+    }
+    bus {
+        publish "bench.rt.ping" of type Ping;
+        subscribe "bench.rt.pong" as on_pong of type Pong;
+    }
+    fn on_pong(p: Pong) {
+        self.got = self.got + 1;
+    }
+    run() {
+        let iters = 200000;
+        // warm-up: the first round trips build the queues' cells
+        let mut i = 0;
+        while i < 1000 {
+            "bench.rt.ping" <- Ping { n: i };
+            while self.got <= i { yield; }
+            i = i + 1;
+        }
+        let base = self.got;
+        let t0 = std::time::monotonic();
+        let mut k = 0;
+        while k < iters {
+            "bench.rt.ping" <- Ping { n: k };
+            while self.got - base <= k { yield; }
+            k = k + 1;
+        }
+        let t1 = std::time::monotonic();
+        print("iters="); println(iters);
+        print("count="); println(self.got - base);
+        print("elapsed_ns="); println(t1 - t0);
+    }
+}
+
+fn main() {
+    App { };
+}
