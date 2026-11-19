@@ -273,6 +273,281 @@
       "drift_sigma": 0.0052,
       "drift_range": 0.0121,
       "runs": 5
+    },
+    "bus_round_trip": {
+      "kind": "micro",
+      "elapsed_ns": 6883065,
+      "maxrss_kb": 4660,
+      "noise": 0.0057,
+      "drift_sigma": 0.0016,
+      "drift_range": 0.0036,
+      "runs": 5,
+      "hale_version": "0.36.0",
+      "updated_at": "2026-11-19T11:18:43Z"
+    },
+    "bus_round_trip_cross_pool": {
+      "kind": "micro",
+      "elapsed_ns": 159476130,
+      "maxrss_kb": 9756,
+      "noise": 0.0122,
+      "drift_sigma": 0.0098,
+      "drift_range": 0.0228,
+      "runs": 5,
+      "hale_version": "0.36.0",
+      "updated_at": "2026-11-19T11:18:43Z"
+    },
+    "json_encode": {
+      "kind": "micro",
+      "elapsed_ns": 63674075,
+      "maxrss_kb": 73332,
+      "noise": 0.004,
+      "drift_sigma": 0.0049,
+      "drift_range": 0.0114,
+      "runs": 5,
+      "hale_version": "0.36.0",
+      "updated_at": "2026-11-19T11:18:43Z"
     }
+  },
+  "gates": {
+    "updated_at": "2026-11-19T11:18:43Z",
+    "hale_version": "0.36.0",
+    "hale_commit": "1e4fd190d",
+    "machine": {
+      "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor",
+      "cores": 8,
+      "threads": 16,
+      "mem_gib": 31
+    },
+    "reps": 5,
+    "build_reps": 3,
+    "note": "measured only; these are not tolerance bands and run.sh does not read them",
+    "measures": [
+      {
+        "area": "build",
+        "measure": "crates/hale-codegen/tests/fixtures/examples/92-build-an-api, cold",
+        "unit": "s",
+        "median": 5.94,
+        "min": 5.93,
+        "max": 5.96
+      },
+      {
+        "area": "build",
+        "measure": "crates/hale-codegen/tests/fixtures/examples/92-build-an-api, warm, unchanged",
+        "unit": "s",
+        "median": 1.81,
+        "min": 1.81,
+        "max": 1.82
+      },
+      {
+        "area": "build",
+        "measure": "crates/hale-codegen/tests/fixtures/examples/92-build-an-api, after a one-line edit",
+        "unit": "s",
+        "median": 1.81,
+        "min": 1.81,
+        "max": 1.81
+      },
+      {
+        "area": "build",
+        "measure": "crates/hale-codegen/tests/fixtures/examples/92-build-an-api, cold, peak RSS",
+        "unit": "MiB",
+        "median": 214,
+        "min": 213,
+        "max": 214
+      },
+      {
+        "area": "build",
+        "measure": "dna/host, cold",
+        "unit": "s",
+        "median": 20.78,
+        "min": 20.74,
+        "max": 20.81
+      },
+      {
+        "area": "build",
+        "measure": "dna/host, warm, unchanged",
+        "unit": "s",
+        "median": 15.83,
+        "min": 15.79,
+        "max": 15.87
+      },
+      {
+        "area": "build",
+        "measure": "dna/host, after a one-line edit",
+        "unit": "s",
+        "median": 15.87,
+        "min": 15.82,
+        "max": 15.88
+      },
+      {
+        "area": "build",
+        "measure": "dna/host, cold, peak RSS",
+        "unit": "MiB",
+        "median": 1052,
+        "min": 1051,
+        "max": 1052
+      },
+      {
+        "area": "http",
+        "measure": "1 conn, requests/s",
+        "unit": "req/s",
+        "median": 46670,
+        "min": 46407,
+        "max": 47105
+      },
+      {
+        "area": "http",
+        "measure": "1 conn, p50",
+        "unit": "µs",
+        "median": 20,
+        "min": 20,
+        "max": 21
+      },
+      {
+        "area": "http",
+        "measure": "1 conn, p99",
+        "unit": "µs",
+        "median": 28,
+        "min": 27,
+        "max": 28
+      },
+      {
+        "area": "http",
+        "measure": "1 conn, errors / dropped, all runs",
+        "unit": "",
+        "median": "0 / 0"
+      },
+      {
+        "area": "http",
+        "measure": "16 conn, requests/s",
+        "unit": "req/s",
+        "median": 80930,
+        "min": 80416,
+        "max": 81337
+      },
+      {
+        "area": "http",
+        "measure": "16 conn, p50",
+        "unit": "µs",
+        "median": 195,
+        "min": 194,
+        "max": 196
+      },
+      {
+        "area": "http",
+        "measure": "16 conn, p99",
+        "unit": "µs",
+        "median": 241,
+        "min": 240,
+        "max": 247
+      },
+      {
+        "area": "http",
+        "measure": "16 conn, errors / dropped, all runs",
+        "unit": "",
+        "median": "0 / 0"
+      },
+      {
+        "area": "http",
+        "measure": "64 conn, requests/s",
+        "unit": "req/s",
+        "median": 81280,
+        "min": 80086,
+        "max": 81553
+      },
+      {
+        "area": "http",
+        "measure": "64 conn, p50",
+        "unit": "µs",
+        "median": 778,
+        "min": 772,
+        "max": 792
+      },
+      {
+        "area": "http",
+        "measure": "64 conn, p99",
+        "unit": "µs",
+        "median": 861,
+        "min": 858,
+        "max": 904
+      },
+      {
+        "area": "http",
+        "measure": "64 conn, errors / dropped, all runs",
+        "unit": "",
+        "median": "0 / 0"
+      },
+      {
+        "area": "memory",
+        "measure": "server RSS idle",
+        "unit": "MiB",
+        "median": 4.6
+      },
+      {
+        "area": "memory",
+        "measure": "server RSS at 10 s",
+        "unit": "MiB",
+        "median": 4.6
+      },
+      {
+        "area": "memory",
+        "measure": "server RSS at 120 s",
+        "unit": "MiB",
+        "median": 4.6
+      },
+      {
+        "area": "memory",
+        "measure": "RSS growth after 10 s (9708012 requests, 0 errors, 0 dropped)",
+        "unit": "KiB/min",
+        "median": 0.0
+      },
+      {
+        "area": "editor",
+        "measure": "small seed (crates/hale-codegen/tests/fixtures/examples/92-build-an-api/main.hl): open to diagnostics",
+        "unit": "ms",
+        "median": 86.1
+      },
+      {
+        "area": "editor",
+        "measure": "small seed: edit to diagnostics, p50",
+        "unit": "ms",
+        "median": 96.2
+      },
+      {
+        "area": "editor",
+        "measure": "small seed: edit to diagnostics, p95",
+        "unit": "ms",
+        "median": 99.1
+      },
+      {
+        "area": "editor",
+        "measure": "small seed: server peak RSS",
+        "unit": "MiB",
+        "median": 90.5
+      },
+      {
+        "area": "editor",
+        "measure": "large seed (dna/core/assembly.hl): open to diagnostics",
+        "unit": "ms",
+        "median": 729.2
+      },
+      {
+        "area": "editor",
+        "measure": "large seed: edit to diagnostics, p50",
+        "unit": "ms",
+        "median": 752.7
+      },
+      {
+        "area": "editor",
+        "measure": "large seed: edit to diagnostics, p95",
+        "unit": "ms",
+        "median": 761.3
+      },
+      {
+        "area": "editor",
+        "measure": "large seed: server peak RSS",
+        "unit": "MiB",
+        "median": 305.6
+      }
+    ]
   }
 }

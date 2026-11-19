@@ -8,6 +8,17 @@
 > portable baseline from v0.32.1 to v0.32.7, which halved
 > `loop_overhead`). The cross-language comparative grid further down
 > was re-run on the same build the same day.
+>
+> Added 2026-11-19 on hale **main 1e4fd190d** (v0.36.0): the v1 gate
+> measures under `gates/` and three microbenches (`bus_round_trip`,
+> `bus_round_trip_cross_pool`, `json_encode`). Their baselines carry
+> that version; the other benches were **not** re-baselined, because
+> two of them regressed between v0.32.7 and v0.33.0 and still are on
+> v0.36.0 — `loop_overhead` 1.86 → 19.9 ms (10.7×, the AVX-512
+> reduction is gone) and `form_vec_get` 13.3 → 40.7 µs (3.1×) — and
+> a baseline taken now would hide them. `run.sh` reports both, and on
+> the same run `form_hashmap_walk_large` (+7.6%) and `stream_aggregator`
+> (+8.0%) trip their bands as well.
 
 Performance harness for Hale, comparing against Go / Node / Python
 sibling implementations of the same workload shape. For the language
@@ -15,8 +26,10 @@ itself, see [hale-lang/hale](https://github.com/hale-lang/hale).
 Baseline scaffold for Layer 3 (performance) per `spec/testing.md` in
 the hale repo.
 Microbenches isolate substrate primitives; one app-level bench
-exercises a small mixed workload end-to-end. The runner is
-shell + jq, no extra build dependencies.
+exercises a small mixed workload end-to-end; `gates/` measures the
+toolchain and a served program (build time, HTTP serving, a server's
+memory under load, editor latency — see **v1 gate measures**). The
+runner is shell + jq, no extra build dependencies.
 
 Each `.hl` bench ships with sibling `.go`, `.js`, and `.py`
 equivalents implementing the same shape as closely as possible.
@@ -37,6 +50,8 @@ hale-vs-X ratio is a developer signal, not a CI gate").
 ./run.sh --no-build            # skip rebuild step
 ./run.sh --no-comparative      # Hale only, skip go/node/python siblings
 ./run.sh --json                # emit only the JSON report to stdout
+gates/run.sh                   # the v1 gate measures (build, http, memory, lsp), ~12 min
+gates/run.sh --record          # ... and record them in baselines.json's "gates"
 ```
 
 Each invocation writes a timestamped JSON report under
@@ -178,11 +193,17 @@ Read each cell as `<elapsed> (<ratio_vs_hale>×)` where
 | `bus_dispatch`              | 173.03 µs | 458.04 µs (2.65×) | 1.24 ms (7.18×) | 10.77 ms (62.2×) |
 | `bus_dispatch_heap_payload` | 2.04 ms | — | — | — |
 | `bus_publish_shm_ring`      | 1.36 ms | — | — | — |
+| `bus_round_trip` ‡          | 6.89 ms | — | — | — |
 | `form_vec_push`             | 686.97 µs | 2.58 ms (3.75×) | 3.10 ms (4.52×) | 13.00 ms (18.9×) |
 | `form_vec_get`              | 12.98 µs | 39.34 µs (3.03×) | 649.35 µs (50.0×) | 7.84 ms (603×) |
 | `form_hashmap_set`          | 39.10 ms | 48.55 ms (1.24×) | 77.25 ms (1.98×) | 254.59 ms (6.51×) |
 | `form_hashmap_get`          | 1.12 ms | 1.08 ms (0.965×) | 2.46 ms (2.20×) | 9.19 ms (8.21×) |
 | `json_parse`                | 61.72 ms | 144.20 ms (2.34×) | 50.88 ms (0.824×) | 223.89 ms (3.63×) |
+| `json_encode` ‡             | 63.49 ms | 31.62 ms (0.498×) | 17.98 ms (0.283×) | 324.37 ms (5.11×) |
+
+‡ Added 2026-11-19 and measured then, on hale main 1e4fd190d (v0.36.0),
+same host and toolchains, one `./run.sh --iters=11`; the other rows are
+the 2026-11-07 snapshot.
 
 \* `loop_overhead` is not a dead-code artifact — every sibling
 xor-accumulates into a pid-seeded value that's printed, so no side can
@@ -198,6 +219,16 @@ the bench-description note below.
 via the inlined `Type::from_json`. Hale **beats Go's
 encoding/json 2.34× and Python's json.loads 3.63×**, and
 sits ~21% behind V8's `JSON.parse` (0.824×).
+
+`json_encode` is the other direction on the same record, 200k
+`Type::to_json` encodes. There Hale is behind: Go's encoding/json is
+2.0× faster and V8's `JSON.stringify` 3.5×. Its maxrss (72 MB, against
+`json_parse`'s 29 MB) says the encoded strings are held until `main`
+returns rather than freed each iteration.
+
+`bus_round_trip` is a request/reply latency: 200k Ping → Pong round
+trips with one in flight, about 34 ns each, where `bus_dispatch`
+pipelines one-way publishes at about 1.7 ns each.
 
 ### Amortized microbenches
 
@@ -234,6 +265,7 @@ accumulation.
 | `bus_dispatch_cross_pool` † | 6.26 ms | 6.08 ms (0.972×) | 38.70 ms (6.18×) | 81.47 ms (13.0×) |
 | `form_hashmap_false_sharing`  | 20.00 ms | 9.54 ms (0.477×) | 85.51 ms (4.27×) | 36.72 ms (1.84×) |
 | `form_hashmap_walk_large`     | 111.62 µs | 382.18 µs (3.42×) | 721.12 µs (6.46×) | 7.07 ms (63.3×) |
+| `bus_round_trip_cross_pool` ‡ | 154.60 ms | — | — | — |
 
 † `bus_dispatch_cross_pool` is bimodal from run to run on this host:
 its median lands near 5.1 ms or near 6.2 ms (the baseline, a median of
@@ -506,6 +538,123 @@ addressing the regression first — the grid is supposed to
 reflect the shipped state of the language, not transient
 work-in-progress.
 
+## v1 gate measures (`gates/`)
+
+The measures hale-lang/hale#1950 needs before v1 targets can be set:
+what the toolchain costs (build time, editor latency) and what a served
+program does (HTTP throughput and tail latency, memory under load).
+`gates/run.sh` takes them. **It measures only.** There are no
+tolerance bands here, `run.sh` does not read them, and no number fails
+the run: they are recorded so that targets can be chosen against
+measurements and a later release compared with this one. Comparative
+siblings are not the point; these are Hale-toolchain measures.
+
+### Rerun
+
+```sh
+# 1. A hale checkout, built whole (the editor and build measures read
+#    programs from it; std::ts needs the workspace build):
+git clone https://github.com/hale-lang/hale
+cd hale && cargo build --release && cd ..
+
+# 2. This repo beside it; then, from this repo's root:
+gates/run.sh                       # all four, ~12 min; table on stderr
+gates/run.sh --only=http,memory    # a subset of build,http,memory,lsp
+gates/run.sh --record              # also write the medians to baselines.json ("gates")
+```
+
+`HALE_BIN` picks the binary as `run.sh` does; `HALE_SRC` names the hale
+checkout to read programs from (default: the checkout `HALE_BIN` sits
+in, else `../hale`). The checkout is only read; builds run on a copy.
+`--reps=N` (default 5) repeats each HTTP measure, `--build-reps=N`
+(default 3) each build, and `--memory-seconds=N` (default 120) sets
+the memory run's length. Needs jq, `/usr/bin/time`, python3 and rustc,
+nothing beyond their standard libraries. Every run writes
+`results/gates-<stamp>.json` with each repeat's raw numbers.
+
+Compare like with like: the same machine, idle, the same build profile.
+
+### Results
+
+hale **main 1e4fd190d** (v0.36.0), 2026-11-19. AMD Ryzen 7 9800X3D,
+8 cores / 16 threads, 31 GiB, Linux 6.18, otherwise idle. The median of
+the repeats (builds 3, HTTP 5), with the range across them;
+`baselines.json`'s `gates` holds the same rows.
+
+| Area | Measure | Median | Range |
+|---|---|---|---|
+| build | small program, cold | 5.94 s | 5.93 to 5.96 |
+| build | small program, warm, unchanged | 1.81 s | 1.81 to 1.82 |
+| build | small program, after a one-line edit | 1.81 s | 1.81 to 1.81 |
+| build | small program, cold, peak RSS | 214 MiB | 213 to 214 |
+| build | `dna/host`, cold | 20.78 s | 20.74 to 20.81 |
+| build | `dna/host`, warm, unchanged | 15.83 s | 15.79 to 15.87 |
+| build | `dna/host`, after a one-line edit | 15.87 s | 15.82 to 15.88 |
+| build | `dna/host`, cold, peak RSS | 1052 MiB | 1051 to 1052 |
+| http | 1 connection: requests/s | 46,670 | 46,407 to 47,105 |
+| http | 1 connection: p50 / p99 | 20 / 28 µs | p99 27 to 28 |
+| http | 16 connections: requests/s | 80,930 | 80,416 to 81,337 |
+| http | 16 connections: p50 / p99 | 195 / 241 µs | p99 240 to 247 |
+| http | 64 connections: requests/s | 81,280 | 80,086 to 81,553 |
+| http | 64 connections: p50 / p99 | 778 / 861 µs | p99 858 to 904 |
+| http | errors / dropped attempts, every run | 0 / 0 | |
+| memory | server RSS: idle, at 10 s, at 120 s of load | 4.6, 4.6, 4.6 MiB | |
+| memory | RSS growth from 10 s to 120 s (9.7 M requests, 0 errors, 0 dropped) | 0.0 KiB/min (flat) | |
+| editor | small seed: open, to diagnostics | 86 ms | |
+| editor | small seed: edit, to diagnostics, p50 / p95 | 96 / 99 ms | 20 edits |
+| editor | small seed: server peak RSS | 91 MiB | |
+| editor | large seed (`dna/core`): open, to diagnostics | 729 ms | |
+| editor | large seed: edit, to diagnostics, p50 / p95 | 753 / 761 ms | 20 edits |
+| editor | large seed: server peak RSS | 306 MiB | |
+
+### What each measures
+
+**Build** (`hale build <target> -o <tmp>`, wall time; peak RSS of the
+`hale build` process from `/usr/bin/time`). The small program is
+hale's `crates/hale-codegen/tests/fixtures/examples/92-build-an-api`
+(an API with a surface, a handler and records); the large one is
+`dna/host`, the largest program in the hale tree (the host with the
+DNA core and the API it imports). *Cold* runs with an empty
+`XDG_CACHE_HOME`, so the runtime's C objects are compiled and cached;
+*warm* is the same build again; *after a one-line edit* appends a
+comment to the target's `main.hl` first. `hale build` has no
+incremental compilation beyond that runtime-object cache, so an
+unchanged rebuild costs what a rebuild after an edit does, and the
+cold build's extra is the cache (about 4 s small, 5 s large). Builds
+use `hale build`'s defaults (release profile, host CPU).
+
+**HTTP** (`gates/http_serve.hl` under `gates/httpload.rs`). The hale
+book's minimal `std::http::Server`: a handler that counts its hits and
+answers a short text body. The load generator is closed-loop: each
+connection sends `GET /` as soon as the last response is in, for 10 s
+after 2 s of warm-up, at 1, 16 and 64 connections. The server answers
+each request with `Connection: close`, so every request includes a TCP
+connect, and latency runs from the request's send to the end of its
+response, reconnect included. A non-200 response is an *error*; a
+connection that fails before its response is complete is a *dropped*
+attempt, counted when it fails inside the window and sent again, so a
+server that loses requests cannot read as error-free. The server is
+one handler loop, so throughput levels off near 81,000 requests/s from
+16 connections up and more connections only queue (p50 rises in
+proportion).
+
+**Memory** (the same server under load). 16 connections of constant
+load for 120 s, the server's RSS (`/proc/<pid>/status` VmRSS) read
+every second; growth is the least-squares slope from 10 s to the end.
+
+**Editor** (`gates/lsp_latency.py`). A client drives `hale lsp` over
+stdio: it opens one file and times the diagnostics that follow, then
+makes 20 edits (a comment line added at the end of the file, then
+removed, alternately; full-document sync). Each time runs from the
+client's write to the last `publishDiagnostics` of the pass, the
+server then silent for 1 s. The small seed is
+`92-build-an-api/main.hl`; the large seed is `dna/core`, opened at
+`assembly.hl`, which the server checks whole on every event. Peak RSS
+is the server's VmHWM at the end.
+
+Not measured here: cold start of a built binary, cross-machine bus
+transports, HTTPS. Each needs a harness of its own.
+
 ## Three kinds of microbench
 
 The benches under `micro/` split into **three categories**
@@ -553,6 +702,16 @@ normally accompany.
   queue enqueue is the design (per
   `memory.md` "pointers don't cross loci; values do") but the
   bench measures it isolated.
+- **`bus_round_trip`** — 200k request/reply round trips, one in
+  flight: main publishes a Ping, an Echo locus on main's pool answers
+  with a Pong, main yields until it is in, then sends the next.
+  `bus_dispatch` measures throughput (the queue never empties); this
+  is the latency a request/reply caller waits. Hale-only: a Go
+  channel ping-pong would measure the goroutine scheduler instead.
+- **`json_encode`** — 200k `Quote::to_json` encodes of
+  `json_parse`'s record (`seq` varies per iteration so nothing
+  hoists); the output lengths are folded and printed. Siblings:
+  Go `json.Marshal`, `JSON.stringify`, `json.dumps` (compact).
 - **`form_vec_push`** — 500k pushes only. Isolated growth path.
 - **`form_vec_get`** — 200k indexed reads only. Isolated read
   path.
@@ -633,6 +792,10 @@ either lands or is rejected against a baseline here.
   for the cross-thread mailbox path. Pairs with the prefetch
   hint shipped in F.32-4-prefetch (`__builtin_prefetch` in
   `lotus_coop_pool_post`).
+- **`bus_round_trip_cross_pool`** — `bus_round_trip` with the Echo
+  locus on the `io` pool: 100k round trips, each two cross-thread
+  posts and their wake-ups (about 1.5 µs). The latency counterpart of
+  `bus_dispatch_cross_pool`'s throughput. Hale-only.
 - **`form_hashmap_false_sharing`** — two pools concurrently
   write disjoint keys (even / odd ids) into a shared
   `@form(hashmap, sync = serialized)`. The Prometheus-counter
@@ -721,6 +884,7 @@ iteration makes is freed when the next one starts.
 │   ├── form_vec_get.{ap,go,js,py}
 │   ├── form_hashmap_set.{ap,go,js,py}
 │   ├── form_hashmap_get.{ap,go,js,py}
+│   ├── json_parse.{hl,c,rs,go,js,py}, json_encode.{hl,go,js,py}
 │   │
 │   │   # Amortized microbenches (match design's optimization target)
 │   ├── vec_amortized.{ap,go,js,py}
@@ -733,6 +897,7 @@ iteration makes is freed when the next one starts.
 │   │
 │   │   # Cross-pool / cache microbenches (F.32)
 │   ├── bus_dispatch_cross_pool.{hl,go,js,py}
+│   ├── bus_round_trip.hl, bus_round_trip_cross_pool.hl
 │   ├── form_hashmap_false_sharing.{hl,go,js,py}
 │   ├── form_hashmap_walk_large.{hl,go,js,py}
 │   │
@@ -745,6 +910,11 @@ iteration makes is freed when the next one starts.
 │   └── method_loop_alloc.{hl,go,js,py}
 ├── app/
 │   └── stream_aggregator.{ap,go,js,py}
+├── gates/                   v1 gate measures (own runner; measures only)
+│   ├── run.sh               build, http, memory, lsp
+│   ├── http_serve.hl        the served program
+│   ├── httpload.rs          closed-loop HTTP/1.1 load generator (std only)
+│   └── lsp_latency.py       an LSP client that times `hale lsp`
 └── c-twins/                 (placeholder) hand-written C equivalents
                              for FORM-3 10%-gate comparisons.
 ```

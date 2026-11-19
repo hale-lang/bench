@@ -1,0 +1,70 @@
+// bus_round_trip_cross_pool — a request/reply round trip across pools.
+//
+// As bus_round_trip.hl, with Echo placed on a cooperative pool of its
+// own (`io`, a second OS thread): each Ping crosses into io's queue and
+// each Pong crosses back into main's, one round trip in flight.
+// elapsed_ns / iters is two cross-thread posts, their wake-ups and two
+// dispatches. Pairs with bus_dispatch_cross_pool.hl, which pipelines
+// 100k one-way posts and measures throughput; this is the latency.
+//
+// Hale-only, for the reason bus_round_trip.hl gives.
+
+type Ping {
+    n: Int;
+}
+
+type Pong {
+    n: Int;
+}
+
+locus Echo {
+    bus {
+        subscribe "bench.xrt.ping" as on_ping of type Ping;
+        publish "bench.xrt.pong" of type Pong;
+    }
+    fn on_ping(p: Ping) {
+        "bench.xrt.pong" <- Pong { n: p.n };
+    }
+}
+
+main locus App {
+    params {
+        echo: Echo = Echo { };
+        got: Int = 0;
+    }
+    placement {
+        echo: cooperative(pool = io);
+    }
+    bus {
+        publish "bench.xrt.ping" of type Ping;
+        subscribe "bench.xrt.pong" as on_pong of type Pong;
+    }
+    fn on_pong(p: Pong) {
+        self.got = self.got + 1;
+    }
+    run() {
+        let iters = 100000;
+        let mut i = 0;
+        while i < 1000 {
+            "bench.xrt.ping" <- Ping { n: i };
+            while self.got <= i { yield; }
+            i = i + 1;
+        }
+        let base = self.got;
+        let t0 = std::time::monotonic();
+        let mut k = 0;
+        while k < iters {
+            "bench.xrt.ping" <- Ping { n: k };
+            while self.got - base <= k { yield; }
+            k = k + 1;
+        }
+        let t1 = std::time::monotonic();
+        print("iters="); println(iters);
+        print("count="); println(self.got - base);
+        print("elapsed_ns="); println(t1 - t0);
+    }
+}
+
+fn main() {
+    App { };
+}

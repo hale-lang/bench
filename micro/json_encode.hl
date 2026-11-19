@@ -1,0 +1,38 @@
+// json_encode — schema-specialized JSON encode throughput.
+//
+// The other direction of json_parse.hl: encodes the same 7-field quote
+// record N times via the generated `Quote::to_json` and folds the
+// output's length, so no side can drop the work. The record is built
+// once, outside the timed region; each iteration varies `seq` so the
+// encode cannot be hoisted.
+//
+// Compares against Go encoding/json (struct marshal), Node
+// JSON.stringify and Python json.dumps, each encoding the same record
+// from native form.
+
+type Quote {
+    sym: String `json:"sym"`;
+    bid: Int    `json:"bid"`;
+    ask: Int    `json:"ask"`;
+    bidsz: Int  `json:"bidsz"`;
+    asksz: Int  `json:"asksz"`;
+    ts: Int     `json:"ts"`;
+    seq: Int    `json:"seq"`;
+}
+
+fn main() {
+    let iters = 200000;
+    let t0 = std::time::monotonic();
+    let mut total = 0;
+    let mut i = 0;
+    while i < iters {
+        let q = Quote { sym: "BTCUSD", bid: 50000, ask: 50010, bidsz: 12, asksz: 8, ts: 1700000000000, seq: i };
+        let s = Quote::to_json(q);
+        total = total + len(s);
+        i = i + 1;
+    }
+    let t1 = std::time::monotonic();
+    print("iters="); println(iters);
+    print("total="); println(total);
+    print("elapsed_ns="); println(t1 - t0);
+}

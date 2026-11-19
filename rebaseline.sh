@@ -113,9 +113,10 @@ for r in reports:
 
 # Keep any explicit override a human wrote down.
 try:
-    prev = json.load(open("baselines.json")).get("benches", {})
+    prev_doc = json.load(open("baselines.json"))
 except Exception:
-    prev = {}
+    prev_doc = {}
+prev = prev_doc.get("benches", {})
 
 benches = {}
 for name, meds in sorted(per_run.items()):
@@ -159,6 +160,10 @@ out = {
     "iters": reports[0].get("iters"),
     "benches": benches,
 }
+# gates/run.sh --record keeps its own measures here; this sweep does not
+# take them, so it carries them forward untouched.
+if "gates" in prev_doc:
+    out["gates"] = prev_doc["gates"]
 json.dump(out, open("baselines.json", "w"), indent=2)
 open("baselines.json", "a").write("\n")
 
