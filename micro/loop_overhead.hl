@@ -20,15 +20,27 @@
 // measurement. (A future variant could add a loop-carried
 // dependence to force scalar execution if pure overhead is wanted.)
 
-fn main() {
-    let iters = 100000000 + std::process::pid();
-    let t0 = std::time::monotonic();
+//
+// The fold is a `@vectorize` fn (hale GH #2134): if the loop ever stops
+// vectorizing on the target the bench builds for, the build fails at
+// the loop with LLVM's reason instead of the number quietly dropping
+// to scalar speed.
+
+@vectorize
+fn xor_fold(seed: Int, iters: Int) -> Int {
+    let mut acc = seed;
     let mut i = 0;
-    let mut acc = std::process::pid();
     while i < iters {
         acc = acc ^ i;
         i = i + 1;
     }
+    return acc;
+}
+
+fn main() {
+    let iters = 100000000 + std::process::pid();
+    let t0 = std::time::monotonic();
+    let acc = xor_fold(std::process::pid(), iters);
     let t1 = std::time::monotonic();
     print("iters=");
     println(iters);
