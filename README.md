@@ -1066,6 +1066,13 @@ Each file's header has the details.
   in a locus method; see hale-lang/hale#2090 for why.
 - **`ring_buffer_steady`**: a `@form(ring_buffer)` of records in steady
   state; maxrss is the flat-memory check (hale-lang/hale#2044).
+- **`bounded_kernel_int`**, **`_u32`**, **`_u16`**: one reduction (refill
+  a `bounded[T; 4096]` record field, fold `x * 3` over it) at three
+  element widths, the fixed-width integers' point (hale-lang/hale#2132):
+  a `U32` or `U16` buffer is a half or a quarter of an `Int`'s, and its
+  `wrapping_*` fold is plain `i32` arithmetic the vectorizer widens to
+  four lanes a NEON instruction, where aarch64 has no `i64` vector
+  multiply. Hale-only: the comparison is between the widths.
 
 C siblings exist where the shape translates (`str_*` scans, a doubling
 buffer, an `strcmp` chain, a fixed ring). `bounded_records` has none,
@@ -1120,6 +1127,7 @@ because an honest one would need its own string ownership scheme.
 │   ├── str_words, str_csv_sum, str_concat_loop, str_match .{hl,c,rs,go,js,py}
 │   ├── str_words_chain.hl, display_template.hl, display_fstring.hl
 │   ├── bounded_records.{hl,rs,go,js,py}
+│   ├── bounded_kernel_int.hl, bounded_kernel_u32.hl, bounded_kernel_u16.hl
 │   └── ring_buffer_steady.{hl,c,rs,go,js,py}
 ├── app/
 │   └── stream_aggregator.{ap,go,js,py}
