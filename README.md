@@ -159,6 +159,107 @@ to `results/run-<stamp>.json`) are the numbers in the grid below.
 Numbers move meaningfully between machines — compare ratios from
 *your* run, not absolute times against the snapshot's Ryzen 9800X3D.
 
+## Since v0.36.0
+
+The v0.36.0 baselines (hale main 1e4fd190d, 2026-11-19) against
+v0.38.0, the release binary, on 2026-11-22: a full `./run.sh
+--iters=11`, then `./rebaseline.sh 5 21`. Six rows are out of band.
+Five are faster and re-baselined at v0.38.0. One is slower, and its
+row stays at v0.36.0:
+
+| Bench | v0.36.0 | v0.38.0 | Δ | Band | Cause |
+|---|---:|---:|---:|---:|---|
+| `loop_overhead` | 19.99 ms | 1.85 ms | −90.8% | 5.0% | hale#2097 (v0.36.1): a counted leaf loop checks the drain once a chunk, so the reduction vectorizes again ([hale#2089](https://github.com/hale-lang/hale/issues/2089)). The bench also changed: its fold is now a `@vectorize` fn (bench #19). |
+| `form_vec_get` | 42.0 µs | 13.5 µs | −67.9% | 7.6% | the same, hale#2097 |
+| `display_fstring` | 39.17 ms | 32.47 ms | −17.1% | 5.0% | hale#2104 (v0.36.3): `fn main`'s loops reclaim per iteration. maxrss 57.7 → 4.5 MB |
+| `display_template` | 50.63 ms | 42.46 ms | −16.1% | 5.0% | the same. maxrss 65.3 → 4.5 MB |
+| `json_encode` | 63.76 ms | 54.34 ms | −14.8% | 5.0% | the same. maxrss 71.5 → 4.5 MB, in two steps (below) |
+| `fn_scratch_work` | 59.7 µs | 64.0 µs | +7.4% | 5.0% | hale#2104: `main`'s loop now opens an iteration arena per call of its allocating helper, at about 40 ns an iteration. Filed as [hale#2163](https://github.com/hale-lang/hale/issues/2163); this row keeps its v0.36.0 baseline until that is settled. |
+
+**How it was placed.** Each bench was built by every release from
+v0.36.0 to v0.38.0. `loop_overhead` was built from its source before
+bench #19, so the bench's own change is out of the comparison. Runs
+were interleaved, 5 rounds; the change against v0.36.0:
+
+| Bench | v0.36.1 | v0.36.2 | v0.36.3 | v0.36.4 | v0.36.5 | v0.37.0 | v0.38.0 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `loop_overhead` (old source) | −90.2% | −90.3% | −90.3% | −90.3% | −90.3% | −90.2% | −90.2% |
+| `form_vec_get` | −72.0% | −70.1% | −71.5% | −72.3% | −72.4% | −71.1% | −71.2% |
+| `display_fstring` | +1.0% | −3.2% | −20.7% | −19.9% | −20.0% | −19.4% | −19.5% |
+| `display_template` | −2.7% | −4.9% | −18.1% | −18.7% | −18.7% | −19.3% | −20.1% |
+| `json_encode` | −0.2% | −1.5% | −13.7% | −11.8% | −12.6% | −13.9% | −15.6% |
+| `fn_scratch_work` | +0.6% | −0.1% | +7.9% | +8.7% | +7.6% | +8.3% | +7.8% |
+
+- **`json_encode`'s maxrss** halves at v0.36.1 (71.7 → 35.0 MB), whose
+  memory change is hale#2095 (a helper's local records die at its
+  return), and drops to 4.6 MB at v0.36.3 with the rest.
+- **`fn_scratch_work`.**
+  - **The cost is per iteration.** With its 100 calls raised to 10,000,
+    it is 5.65 → 6.04 ms from v0.36.2 to v0.36.3, +39 ns a call.
+  - **It is not instructions.** Callgrind puts the added work at about
+    50 instructions a call, `lotus_arena_iteration_enter` once per
+    iteration.
+  - hale#2104 measured its enter at 1 to 1.5 ns an iteration, on
+    `locus_instantiation`.
+- **`fn_call`** came out −22.7% in the full run's single pass (band
+  8.4%), but it has not moved. The 5-run re-baseline puts it −2.5%. 15
+  interleaved runs give v0.36.0 and v0.38.0 the same median (11.48 ms),
+  and one binary alone spreads 8.3–14.6 ms. Its row is unchanged.
+
+**The fixed-width kernels** (new, bench #20; hale#2151, the fixed-width
+integers):
+
+| Bench | v0.38.0 | against `int` |
+|---|---:|---:|
+| `bounded_kernel_int` | 36.03 ms | 1.00× |
+| `bounded_kernel_u32` | 35.01 ms | 1.03× |
+| `bounded_kernel_u16` | 34.86 ms | 1.03× |
+
+On this machine the widths barely differ, against 1.58× (`u32`) and
+1.71× (`u16`) on an M1:
+
+- **The refill dominates.** Each round's refill, one `push` per
+  element, costs about 32 ms of the 35–36 ms at every width.
+  Measured by the same benches with the fold taken out.
+- **The fold does gain.** Alone, it costs about 4.2 ms at `Int`, 3.0 ms
+  at `U32` and 2.8 ms at `U16`: 1.4× and 1.5×.
+- **AVX-512 vectorizes the `Int` fold too.** It has a 64-bit vector
+  multiply (`vpmullq`), where aarch64 has none, so the `Int` fold
+  is not scalar here.
+
+**Everything else is inside its band.** The largest in-band moves are
+`locus_instantiation` +6.6% (band 12.0%, the iteration-arena cost
+hale#2104 measured on it) and `str_concat_loop` +4.5% (band 6.5%).
+With narrow-integer storage (hale#2151), the typed-seam and strict-mode
+slices (hale#2125 to #2148) and the bounded field retire (hale#2107) in
+the range, every other row stays inside its band; none of them was A/B'd
+on its own.
+
+**Validated with four passes** of v0.38.0 against these baselines.
+`fn_scratch_work` flags in all four (hale#2163). Two one-pass flags
+are machine state, each inside its band in the other three passes:
+
+- `display_template` at +5.1%, on its 5% band;
+- `field_alt_empty` at +14.7%: 49.5–49.7 ms in three passes and 57.4 ms
+  in one, with a tight median inside that run.
+
+**maxrss** is about 2–3% (≈0.1 MB) higher on nearly every bench. Not
+placed; maxrss is not gated.
+
+**Not re-run:** the comparative grid, `xproc/` and `gates/`. The grid
+is not refreshed against a run with an open regression (§ Refreshing
+the grid), so it waits for hale#2163.
+
+**Run conditions:**
+
+- **Hardware:** AMD Ryzen 7 9800X3D (8 cores / 16 threads), Linux 6.18.
+  The v0.38.0 release binary for x86_64 Linux, checksum-verified; the
+  benches build with `--target-cpu native`.
+- **Load:** sampled every 5 s through the full run, and logged before
+  each phase. The 1-minute load average stayed under 0.7, with the
+  benches themselves on top.
+- **Containers:** six idle containers, under 0.05% CPU each.
+
 ## Since v0.32.7
 
 The previous baselines were taken on hale main 25fe52518 (v0.32.7,
@@ -440,7 +541,9 @@ pre-allocate their cap (~4.3 MB per pinned mailbox / cooperative pool at the
 default 8192) instead of growing — down-tunable via `LOTUS_BUS_QUEUE_CAP`.
 Re-baselined at the time under v0.9.0; `baselines.json` has since been
 re-baselined (its `hale_version` field names the binary the current
-medians came from — v0.36.0, main 1e4fd190d, as of 2026-11-19).
+medians came from — v0.36.0, main 1e4fd190d, as of 2026-11-19; a row
+re-baselined since carries its own `hale_version`, v0.38.0 for eight
+rows as of 2026-11-22).
 
 ### App benches
 
@@ -1072,7 +1175,9 @@ Each file's header has the details.
   a `U32` or `U16` buffer is a half or a quarter of an `Int`'s, and its
   `wrapping_*` fold is plain `i32` arithmetic the vectorizer widens to
   four lanes a NEON instruction, where aarch64 has no `i64` vector
-  multiply. Hale-only: the comparison is between the widths.
+  multiply. Hale-only: the comparison is between the widths. On an
+  AVX-512 x86 the `Int` fold vectorizes too, and the refill is most of
+  each round, so the three are within 3% there (§ Since v0.36.0).
 
 C siblings exist where the shape translates (`str_*` scans, a doubling
 buffer, an `strcmp` chain, a fixed ring). `bounded_records` has none,

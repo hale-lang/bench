@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-19T12:54:49Z",
+  "updated_at": "2026-11-22T11:35:05Z",
   "hale_version": "0.36.0",
   "runs": 5,
   "iters": 21,
@@ -186,12 +186,13 @@
     },
     "form_vec_get": {
       "kind": "micro",
-      "elapsed_ns": 42048,
-      "maxrss_kb": 6036,
-      "noise": 0.0191,
-      "drift_sigma": 0.0165,
-      "drift_range": 0.0383,
-      "runs": 5
+      "elapsed_ns": 13505,
+      "maxrss_kb": 6040,
+      "noise": 0.0321,
+      "drift_sigma": 0.0696,
+      "drift_range": 0.1619,
+      "runs": 5,
+      "hale_version": "0.38.0"
     },
     "form_vec_push": {
       "kind": "micro",
@@ -204,12 +205,13 @@
     },
     "json_encode": {
       "kind": "micro",
-      "elapsed_ns": 63761376,
-      "maxrss_kb": 73224,
-      "noise": 0.0044,
-      "drift_sigma": 0.0119,
-      "drift_range": 0.0276,
-      "runs": 5
+      "elapsed_ns": 54335260,
+      "maxrss_kb": 4632,
+      "noise": 0.0037,
+      "drift_sigma": 0.0303,
+      "drift_range": 0.0706,
+      "runs": 5,
+      "hale_version": "0.38.0"
     },
     "json_parse": {
       "kind": "micro",
@@ -231,12 +233,13 @@
     },
     "loop_overhead": {
       "kind": "micro",
-      "elapsed_ns": 19990665,
-      "maxrss_kb": 4420,
-      "noise": 0.0013,
-      "drift_sigma": 0.0012,
-      "drift_range": 0.0027,
-      "runs": 5
+      "elapsed_ns": 1847534,
+      "maxrss_kb": 4560,
+      "noise": 0.0249,
+      "drift_sigma": 0.0161,
+      "drift_range": 0.0374,
+      "runs": 5,
+      "hale_version": "0.38.0"
     },
     "method_loop_alloc": {
       "kind": "micro",
@@ -312,21 +315,23 @@
     },
     "display_fstring": {
       "kind": "micro",
-      "elapsed_ns": 39168515,
-      "maxrss_kb": 59072,
-      "noise": 0.0075,
-      "drift_sigma": 0.009,
-      "drift_range": 0.0208,
-      "runs": 5
+      "elapsed_ns": 32468033,
+      "maxrss_kb": 4652,
+      "noise": 0.0088,
+      "drift_sigma": 0.004,
+      "drift_range": 0.0092,
+      "runs": 5,
+      "hale_version": "0.38.0"
     },
     "display_template": {
       "kind": "micro",
-      "elapsed_ns": 50628700,
-      "maxrss_kb": 66900,
-      "noise": 0.0069,
-      "drift_sigma": 0.0053,
-      "drift_range": 0.0122,
-      "runs": 5
+      "elapsed_ns": 42460512,
+      "maxrss_kb": 4644,
+      "noise": 0.0081,
+      "drift_sigma": 0.01,
+      "drift_range": 0.0233,
+      "runs": 5,
+      "hale_version": "0.38.0"
     },
     "ring_buffer_steady": {
       "kind": "micro",
@@ -381,6 +386,36 @@
       "drift_sigma": 0.0018,
       "drift_range": 0.0043,
       "runs": 5
+    },
+    "bounded_kernel_int": {
+      "kind": "micro",
+      "elapsed_ns": 36027186,
+      "maxrss_kb": 4792,
+      "noise": 0.001,
+      "drift_sigma": 0.0008,
+      "drift_range": 0.0019,
+      "runs": 5,
+      "hale_version": "0.38.0"
+    },
+    "bounded_kernel_u32": {
+      "kind": "micro",
+      "elapsed_ns": 35008352,
+      "maxrss_kb": 4668,
+      "noise": 0.0008,
+      "drift_sigma": 0.0002,
+      "drift_range": 0.0005,
+      "runs": 5,
+      "hale_version": "0.38.0"
+    },
+    "bounded_kernel_u16": {
+      "kind": "micro",
+      "elapsed_ns": 34863861,
+      "maxrss_kb": 4624,
+      "noise": 0.0007,
+      "drift_sigma": 0.0005,
+      "drift_range": 0.0012,
+      "runs": 5,
+      "hale_version": "0.38.0"
     }
   },
   "gates": {
@@ -472,7 +507,7 @@
       {
         "area": "http",
         "measure": "1 conn, p50",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 20,
         "min": 20,
         "max": 20
@@ -480,7 +515,7 @@
       {
         "area": "http",
         "measure": "1 conn, p99",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 28,
         "min": 27,
         "max": 28
@@ -502,7 +537,7 @@
       {
         "area": "http",
         "measure": "16 conn, p50",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 193,
         "min": 193,
         "max": 194
@@ -510,7 +545,7 @@
       {
         "area": "http",
         "measure": "16 conn, p99",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 240,
         "min": 238,
         "max": 246
@@ -532,7 +567,7 @@
       {
         "area": "http",
         "measure": "64 conn, p50",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 774,
         "min": 766,
         "max": 789
@@ -540,7 +575,7 @@
       {
         "area": "http",
         "measure": "64 conn, p99",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 870,
         "min": 837,
         "max": 890
@@ -636,7 +671,7 @@
       {
         "area": "api",
         "measure": "unix rpc, 1 conn, p50",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 17,
         "min": 17,
         "max": 17,
@@ -646,7 +681,7 @@
       {
         "area": "api",
         "measure": "unix rpc, 1 conn, p99",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 21,
         "min": 21,
         "max": 23,
@@ -674,7 +709,7 @@
       {
         "area": "api",
         "measure": "unix rpc, 16 conn, p50",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 103,
         "min": 102,
         "max": 104,
@@ -684,7 +719,7 @@
       {
         "area": "api",
         "measure": "unix rpc, 16 conn, p99",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 146,
         "min": 145,
         "max": 147,
@@ -756,7 +791,7 @@
       {
         "area": "hub",
         "measure": "paced, 1 clients, delivery p50",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 12,
         "min": 10,
         "max": 12,
@@ -766,7 +801,7 @@
       {
         "area": "hub",
         "measure": "paced, 1 clients, delivery p99",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 22,
         "min": 17,
         "max": 35,
@@ -776,7 +811,7 @@
       {
         "area": "hub",
         "measure": "paced, 64 clients, delivery p50",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 204,
         "min": 202,
         "max": 206,
@@ -786,7 +821,7 @@
       {
         "area": "hub",
         "measure": "paced, 64 clients, delivery p99",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 393,
         "min": 387,
         "max": 394,
@@ -796,7 +831,7 @@
       {
         "area": "startup",
         "measure": "http_serve: spawn to first answer",
-        "unit": "µs",
+        "unit": "\u00b5s",
         "median": 598,
         "min": 583,
         "max": 790,
@@ -814,7 +849,7 @@
       {
         "area": "pg",
         "measure": "lookup (20000 ops, 0 failed)",
-        "unit": "µs/op",
+        "unit": "\u00b5s/op",
         "median": 22.6,
         "min": 22.5,
         "max": 23.1,
@@ -824,7 +859,7 @@
       {
         "area": "pg",
         "measure": "select1 (20000 ops, 0 failed)",
-        "unit": "µs/op",
+        "unit": "\u00b5s/op",
         "median": 19.7,
         "min": 19.4,
         "max": 21.9,
@@ -834,7 +869,7 @@
       {
         "area": "pg",
         "measure": "transaction (5000 ops, 0 failed)",
-        "unit": "µs/op",
+        "unit": "\u00b5s/op",
         "median": 1943.1,
         "min": 1874.5,
         "max": 2023.2,
@@ -844,7 +879,7 @@
       {
         "area": "pg",
         "measure": "transaction_async (5000 ops, 0 failed)",
-        "unit": "µs/op",
+        "unit": "\u00b5s/op",
         "median": 65.4,
         "min": 64.0,
         "max": 65.7,
