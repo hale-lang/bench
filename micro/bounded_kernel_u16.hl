@@ -1,0 +1,56 @@
+// bounded_kernel_u16 — a reduction over a `bounded[U16; 4096]` record
+// field (hale-lang/hale#2132): the same kernel over a U16.
+//
+// The element is a `U16`: two bytes an element, widened into the `U32` accumulator
+// as it is read (an argument widens where nothing is lost).
+// `bounded_kernel_int`, `_u32` and `_u16` are one shape at three
+// widths: each round (a fn of its own) refills the buffer and folds `x * 3` over it, a
+// sum whose lanes are independent, so the width is what the
+// vectorizer and the cache see. 20,000 rounds of 4096 elements.
+// Prints the folded checksum.
+
+type Frame { xs: bounded[U16; 4096]; }
+
+fn fold(f: Frame) -> U32 {
+    let mut acc: U32 = 0;
+    for x in f.xs {
+        acc = U32::wrapping_add(acc, U32::wrapping_mul(x, 3));
+    }
+    return acc;
+}
+
+// One round in a fn of its own, so its buffer is freed when it returns
+// (hale-lang/hale#2090): refill, then fold.
+fn round(k: Int) -> Int {
+    let mut f = Frame { };
+    let mut i = k;
+    while i < k + 4096 {
+        push(f.xs, U16(i & 1023) or wrap) or discard;
+        i = i + 1;
+    }
+    return Int(fold(f)) % 1000003;
+}
+
+// The rounds run in a locus method, as a long-lived program's work
+// would (hale-lang/hale#2090).
+locus Driver {
+    params { total: Int = 0; }
+    fn go(rounds: Int) {
+        let mut k = 0;
+        while k < rounds {
+            self.total = self.total + round(k);
+            k = k + 1;
+        }
+    }
+}
+
+fn main() {
+    let rounds = 20000;
+    let d = Driver { };
+    let t0 = std::time::monotonic();
+    d.go(rounds);
+    let t1 = std::time::monotonic();
+    print("rounds="); println(rounds);
+    print("total="); println(d.total);
+    print("elapsed_ns="); println(t1 - t0);
+}
